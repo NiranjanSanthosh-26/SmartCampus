@@ -1,0 +1,427 @@
+/* ==============================
+   Global App Layout
+============================== */
+
+.app {
+  min-height: 100vh;
+  background: #f4f7fb;
+  color: #173b68;
+}
+
+/* ==============================
+   Header
+============================== */
+
+.app-header {
+  background: #234a78;
+  color: white;
+  padding: 28px 7%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 30px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 36px;
+  font-weight: 700;
+  color: white;
+}
+
+.app-header p {
+  margin: 4px 0 0;
+  font-size: 20px;
+  color: white;
+}
+
+.mode-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.mode-buttons button {
+  border: none;
+  background: white;
+  color: #173b68;
+  padding: 13px 24px;
+  border-radius: 25px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mode-buttons button:hover {
+  background: #e8f0fa;
+}
+
+.mode-buttons button.active {
+  background: #dcecff;
+}
+
+/* ==============================
+   Main Content
+============================== */
+
+.main-content {
+  width: 90%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 0 60px;
+}
+
+/* ==============================
+   Messages
+============================== */
+
+.success-message,
+.error-message {
+  padding: 15px 20px;
+  border-radius: 10px;
+  margin-bottom: 25px;
+  font-weight: 600;
+}
+
+.success-message {
+  background: #dff7e8;
+  color: #176b3a;
+}
+
+.error-message {
+  background: #ffe3e3;
+  color: #a32929;
+}
+
+/* ==============================
+   Dashboard Heading
+============================== */
+
+.dashboard-heading {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.dashboard-heading h2 {
+  margin: 0 0 10px;
+  font-size: 30px;
+  color: #173b68;
+}
+
+.dashboard-heading p {
+  margin: 0;
+  font-size: 18px;
+  color: #45617f;
+}
+
+/* ==============================
+   Resources
+============================== */
+
+.resources-section {
+  margin-bottom: 40px;
+}
+
+.resources-section h2,
+.bookings-section h2,
+.booking-section h2,
+.admin-section h2 {
+  text-align: center;
+  font-size: 27px;
+  color: #173b68;
+  margin-bottom: 25px;
+}
+
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.resource-card {
+  background: white;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  text-align: center;
+}
+
+.resource-card h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 20px;
+  color: #173b68;
+}
+
+.resource-card p {
+  margin: 8px 0;
+  color: #405a75;
+  font-size: 16px;
+}
+
+/* ==============================
+   Booking Form
+============================== */
+
+.booking-section {
+  background: white;
+  padding: 35px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  margin-bottom: 45px;
+}
+
+.booking-section form {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  color: #173b68;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 13px 15px;
+  border: 1px solid #c7d3e0;
+  border-radius: 7px;
+  font-size: 16px;
+  background: white;
+  color: #173b68;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #356da8;
+  box-shadow: 0 0 0 2px rgba(53, 109, 168, 0.15);
+}
+
+.time-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.submit-button {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 7px;
+  background: #234a78;
+  color: white;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit-button:hover {
+  background: #173b68;
+}
+
+/* ==============================
+   Bookings
+============================== */
+
+.bookings-section {
+  margin-bottom: 40px;
+}
+
+.booking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.booking-card {
+  background: white;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.booking-card h3 {
+  margin-top: 0;
+  color: #173b68;
+}
+
+.booking-card p {
+  margin: 7px 0;
+  color: #405a75;
+}
+
+/* ==============================
+   Status
+============================== */
+
+.status {
+  display: inline-block;
+  padding: 7px 13px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.status.pending {
+  background: #fff1c7;
+  color: #8a6200;
+}
+
+.status.approved {
+  background: #d9f8e7;
+  color: #08733c;
+}
+
+.status.rejected {
+  background: #ffe0e0;
+  color: #a32929;
+}
+
+/* ==============================
+   Admin
+============================== */
+
+.admin-section {
+  margin-top: 20px;
+}
+
+.admin-booking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.admin-booking-card {
+  background: white;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  display: flex;
+  justify-content: space-between;
+  gap: 25px;
+  align-items: center;
+}
+
+.booking-details h3 {
+  margin-top: 0;
+  color: #173b68;
+}
+
+.booking-details p {
+  margin: 7px 0;
+  color: #405a75;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.admin-actions button {
+  border: none;
+  padding: 11px 18px;
+  border-radius: 7px;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.approve-button {
+  background: #16834d;
+}
+
+.approve-button:hover {
+  background: #10683d;
+}
+
+.reject-button {
+  background: #c83c3c;
+}
+
+.reject-button:hover {
+  background: #a72e2e;
+}
+
+/* ==============================
+   Loading
+============================== */
+
+.loading-text {
+  text-align: center;
+  color: #526b85;
+  font-size: 17px;
+  padding: 20px;
+}
+
+/* ==============================
+   Responsive Design
+============================== */
+
+@media (max-width: 800px) {
+  .app-header {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .resource-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .time-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .booking-card,
+  .admin-booking-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-actions {
+    width: 100%;
+  }
+
+  .admin-actions button {
+    flex: 1;
+  }
+}
+
+@media (max-width: 500px) {
+  .main-content {
+    width: 92%;
+    padding-top: 25px;
+  }
+
+  .app-header {
+    padding: 22px 5%;
+  }
+
+  .app-header h1 {
+    font-size: 28px;
+  }
+
+  .app-header p {
+    font-size: 16px;
+  }
+
+  .booking-section {
+    padding: 22px;
+  }
+}

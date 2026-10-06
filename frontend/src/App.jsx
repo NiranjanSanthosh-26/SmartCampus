@@ -10,107 +10,76 @@ function App() {
   const [resources, setResources] = useState([]);
   const [bookings, setBookings] = useState([]);
 
-  const [loadingResources, setLoadingResources] = useState(true);
-  const [loadingBookings, setLoadingBookings] = useState(true);
-
-  const [resourceError, setResourceError] = useState("");
-  const [bookingError, setBookingError] = useState("");
-
-  const [formData, setFormData] = useState({
-    resource_id: "",
-    user_name: "",
-    date: "",
-    start_time: "",
-    end_time: "",
-    purpose: "",
-  });
+  const [selectedResource, setSelectedResource] = useState("");
+  const [userName, setUserName] = useState("Niranjan");
+  const [date, setDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [purpose, setPurpose] = useState("");
 
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // -----------------------------------------
-  // Load resources from AWS
-  // -----------------------------------------
-  const loadResources = async () => {
-    try {
-      setLoadingResources(true);
-      setResourceError("");
-
-      const response = await fetch(`${API_URL}/resources`);
-
-      if (!response.ok) {
-        throw new Error(`Failed to load resources (${response.status})`);
-      }
-
-      const data = await response.json();
-
-      // AWS returns:
-      // { resources: [...] }
-      setResources(Array.isArray(data.resources) ? data.resources : []);
-    } catch (error) {
-      console.error("Error loading resources:", error);
-      setResourceError("Unable to load resources.");
-      setResources([]);
-    } finally {
-      setLoadingResources(false);
-    }
-  };
-
-  // -----------------------------------------
-  // Load bookings from AWS
-  // -----------------------------------------
-  const loadBookings = async () => {
-    try {
-      setLoadingBookings(true);
-      setBookingError("");
-
-      const response = await fetch(`${API_URL}/bookings`);
-
-      if (!response.ok) {
-        throw new Error(`Failed to load bookings (${response.status})`);
-      }
-
-      const data = await response.json();
-
-      // AWS returns:
-      // { bookings: [...] }
-      setBookings(Array.isArray(data.bookings) ? data.bookings : []);
-    } catch (error) {
-      console.error("Error loading bookings:", error);
-      setBookingError("Unable to load bookings.");
-      setBookings([]);
-    } finally {
-      setLoadingBookings(false);
-    }
-  };
-
-  // -----------------------------------------
-  // Load data when application starts
-  // -----------------------------------------
   useEffect(() => {
     loadResources();
     loadBookings();
   }, []);
 
-  // -----------------------------------------
-  // Handle form changes
-  // -----------------------------------------
-  const handleChange = (event) => {
-    const { name, value } = event.target;
+  async function loadResources() {
+    try {
+      const response = await fetch(`${API_URL}/resources`);
+      const data = await response.json();
 
-    setFormData((previous) => ({
-      ...previous,
-      [name]: value,
-    }));
-  };
+      setResources(
+        Array.isArray(data.resources) ? data.resources : []
+      );
+    } catch (err) {
+      console.error(err);
+      setError("Unable to load resources.");
+    }
+  }
 
-  // -----------------------------------------
-  // Create booking
-  // -----------------------------------------
-  const handleBookingSubmit = async (event) => {
+  async function loadBookings() {
+    try {
+      const response = await fetch(`${API_URL}/bookings`);
+      const data = await response.json();
+
+      setBookings(
+        Array.isArray(data.bookings) ? data.bookings : []
+      );
+    } catch (err) {
+      console.error(err);
+      setError("Unable to load bookings.");
+    }
+  }
+
+  function clearMessages() {
+    setMessage("");
+    setError("");
+  }
+
+  async function handleBookingSubmit(event) {
     event.preventDefault();
 
-    setMessage("");
-    setBookingError("");
+    clearMessages();
+
+    if (!selectedResource) {
+      setError("Please select a resource.");
+      return;
+    }
+
+    if (!date || !startTime || !endTime || !purpose) {
+      setError("Please fill in all booking details.");
+      return;
+    }
+
+    if (startTime >= endTime) {
+      setError("End time must be after start time.");
+      return;
+    }
+
+    setLoading(true);
 
     try {
       const response = await fetch(`${API_URL}/bookings`, {
@@ -118,45 +87,46 @@ function App() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          resource_id: selectedResource,
+          user_name: userName,
+          date,
+          start_time: startTime,
+          end_time: endTime,
+          purpose,
+        }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Unable to create booking.");
+        setError(data.message || "Booking could not be created.");
+        return;
       }
 
       setMessage("Booking request submitted successfully.");
 
-      // Clear form
-      setFormData({
-        resource_id: "",
-        user_name: "",
-        date: "",
-        start_time: "",
-        end_time: "",
-        purpose: "",
-      });
+      setSelectedResource("");
+      setDate("");
+      setStartTime("");
+      setEndTime("");
+      setPurpose("");
 
-      // Refresh bookings
       await loadBookings();
-    } catch (error) {
-      console.error("Booking error:", error);
-      setBookingError(error.message || "Unable to create booking.");
+    } catch (err) {
+      console.error(err);
+      setError("Unable to connect to the booking service.");
+    } finally {
+      setLoading(false);
     }
-  };
+  }
 
-  // -----------------------------------------
-  // Approve booking
-  // -----------------------------------------
-  const approveBooking = async (bookingId) => {
-    setMessage("");
-    setBookingError("");
+  async function approveBooking(id) {
+    clearMessages();
 
     try {
       const response = await fetch(
-        `${API_URL}/bookings/${bookingId}/approve`,
+        `${API_URL}/bookings/${id}/approve`,
         {
           method: "PATCH",
         }
@@ -165,28 +135,24 @@ function App() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Unable to approve booking.");
+        setError(data.message || "Unable to approve booking.");
+        return;
       }
 
       setMessage("Booking approved successfully.");
-
       await loadBookings();
-    } catch (error) {
-      console.error("Approval error:", error);
-      setBookingError(error.message || "Unable to approve booking.");
+    } catch (err) {
+      console.error(err);
+      setError("Unable to approve booking.");
     }
-  };
+  }
 
-  // -----------------------------------------
-  // Reject booking
-  // -----------------------------------------
-  const rejectBooking = async (bookingId) => {
-    setMessage("");
-    setBookingError("");
+  async function rejectBooking(id) {
+    clearMessages();
 
     try {
       const response = await fetch(
-        `${API_URL}/bookings/${bookingId}/reject`,
+        `${API_URL}/bookings/${id}/reject`,
         {
           method: "PATCH",
         }
@@ -195,432 +161,561 @@ function App() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Unable to reject booking.");
+        setError(data.message || "Unable to reject booking.");
+        return;
       }
 
       setMessage("Booking rejected successfully.");
-
       await loadBookings();
-    } catch (error) {
-      console.error("Rejection error:", error);
-      setBookingError(error.message || "Unable to reject booking.");
+    } catch (err) {
+      console.error(err);
+      setError("Unable to reject booking.");
     }
-  };
+  }
 
-  // -----------------------------------------
-  // Find resource name
-  // -----------------------------------------
-  const getResourceName = (resourceId) => {
+  function getResourceName(resourceId) {
     const resource = resources.find(
       (item) => item.id === resourceId
     );
 
     return resource ? resource.name : resourceId;
-  };
+  }
+
+  function getStatusClass(status) {
+    return status?.toLowerCase() || "";
+  }
+
+  const pendingCount = bookings.filter(
+    (booking) => booking.status === "PENDING"
+  ).length;
+
+  const approvedCount = bookings.filter(
+    (booking) => booking.status === "APPROVED"
+  ).length;
 
   return (
     <div className="app">
-      {/* Header */}
-      <header className="app-header">
-        <div>
-          <h1>Smart Campus</h1>
-          <p>Resource Booking & Allocation System</p>
+
+      {/* HEADER */}
+      <header className="topbar">
+        <div className="brand">
+          <div className="brand-icon">🏫</div>
+
+          <div>
+            <h1>SmartCampus</h1>
+            <p>Resource Booking System</p>
+          </div>
         </div>
 
-        <div className="mode-buttons">
-          <button
-            className={mode === "student" ? "active" : ""}
-            onClick={() => {
-              setMode("student");
-              setMessage("");
-              setBookingError("");
-            }}
-          >
-            Student
-          </button>
+        <div className="topbar-right">
+          <div className="user-info">
+            <span className="user-avatar">
+              {mode === "student" ? "N" : "A"}
+            </span>
 
-          <button
-            className={mode === "admin" ? "active" : ""}
-            onClick={() => {
-              setMode("admin");
-              setMessage("");
-              setBookingError("");
-            }}
-          >
-            Admin
-          </button>
+            <div>
+              <strong>
+                {mode === "student" ? "Niranjan" : "Administrator"}
+              </strong>
+
+              <span>
+                {mode === "student" ? "Student" : "Admin"}
+              </span>
+            </div>
+          </div>
+
+          <div className="mode-switch">
+            <button
+              className={mode === "student" ? "active" : ""}
+              onClick={() => {
+                setMode("student");
+                clearMessages();
+              }}
+            >
+              Student
+            </button>
+
+            <button
+              className={mode === "admin" ? "active" : ""}
+              onClick={() => {
+                setMode("admin");
+                clearMessages();
+              }}
+            >
+              Admin
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="main-content">
-        {/* Messages */}
+      {/* MAIN CONTENT */}
+      <main className="main-container">
+
+        {/* NOTIFICATIONS */}
         {message && (
-          <div className="success-message">
-            {message}
+          <div className="alert success-alert">
+            ✓ {message}
           </div>
         )}
 
-        {resourceError && (
-          <div className="error-message">
-            {resourceError}
+        {error && (
+          <div className="alert error-alert">
+            ⚠ {error}
           </div>
         )}
 
-        {bookingError && (
-          <div className="error-message">
-            {bookingError}
-          </div>
-        )}
-
-        {/* ============================
-            STUDENT DASHBOARD
-        ============================ */}
+        {/* STUDENT VIEW */}
         {mode === "student" && (
           <>
-            <section className="dashboard-heading">
-              <h2>Student Dashboard</h2>
-              <p>
-                View campus resources and submit booking requests.
-              </p>
+            <section className="hero">
+              <div>
+                <p className="eyebrow">CAMPUS RESOURCE MANAGEMENT</p>
+
+                <h2>Book the resources you need.</h2>
+
+                <p className="hero-text">
+                  Find available campus facilities and submit
+                  booking requests in just a few clicks.
+                </p>
+              </div>
+
+              <div className="hero-icon">
+                📅
+              </div>
             </section>
 
-            {/* Resources */}
-            <section className="resources-section">
-              <h2>Available Resources</h2>
+            {/* BOOKING SECTION */}
+            <section className="section-card booking-section">
+              <div className="section-heading">
+                <div>
+                  <span className="section-number">01</span>
 
-              {loadingResources ? (
-                <p className="loading-text">
-                  Loading resources...
-                </p>
-              ) : resources.length === 0 ? (
-                <p className="loading-text">
-                  No resources available.
-                </p>
-              ) : (
-                <div className="resource-grid">
-                  {resources.map((resource) => (
-                    <div
-                      className="resource-card"
-                      key={resource.id}
-                    >
-                      <h3>{resource.name}</h3>
-
-                      <p>
-                        <strong>Type:</strong>{" "}
-                        {resource.type}
-                      </p>
-
-                      <p>
-                        <strong>Location:</strong>{" "}
-                        {resource.location}
-                      </p>
-
-                      <p>
-                        <strong>Capacity:</strong>{" "}
-                        {resource.capacity}
-                      </p>
-                    </div>
-                  ))}
+                  <div>
+                    <h3>Booking Details</h3>
+                    <p>
+                      Select when you need the resource.
+                    </p>
+                  </div>
                 </div>
-              )}
-            </section>
+              </div>
 
-            {/* Booking Form */}
-            <section className="booking-section">
-              <h2>Book a Resource</h2>
+              <form
+                className="booking-form"
+                onSubmit={handleBookingSubmit}
+              >
 
-              <form onSubmit={handleBookingSubmit}>
-                <div className="form-group">
-                  <label htmlFor="resource_id">
-                    Resource
-                  </label>
+                <div className="form-grid">
 
-                  <select
-                    id="resource_id"
-                    name="resource_id"
-                    value={formData.resource_id}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">
-                      Select a resource
-                    </option>
+                  <div className="form-group">
+                    <label>Date</label>
+
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Start Time</label>
+
+                    <input
+                      type="time"
+                      value={startTime}
+                      onChange={(e) =>
+                        setStartTime(e.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>End Time</label>
+
+                    <input
+                      type="time"
+                      value={endTime}
+                      onChange={(e) =>
+                        setEndTime(e.target.value)
+                      }
+                    />
+                  </div>
+
+                </div>
+
+                <div className="form-group full-width">
+                  <label>Purpose of Booking</label>
+
+                  <input
+                    type="text"
+                    placeholder="e.g. Software Engineering Project"
+                    value={purpose}
+                    onChange={(e) =>
+                      setPurpose(e.target.value)
+                    }
+                  />
+                </div>
+
+                {/* RESOURCE SELECTION */}
+                <div className="resource-selection">
+
+                  <div className="selection-title">
+                    <div>
+                      <span className="section-number">02</span>
+
+                      <div>
+                        <h3>Select a Resource</h3>
+                        <p>
+                          Choose the facility you want to book.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="resource-grid">
 
                     {resources.map((resource) => (
-                      <option
+                      <button
+                        type="button"
                         key={resource.id}
-                        value={resource.id}
+                        className={`resource-card ${
+                          selectedResource === resource.id
+                            ? "selected"
+                            : ""
+                        }`}
+                        onClick={() =>
+                          setSelectedResource(resource.id)
+                        }
                       >
-                        {resource.name}
-                      </option>
+
+                        <div className="resource-icon">
+                          {resource.type === "Laboratory"
+                            ? "💻"
+                            : resource.type === "Seminar Hall"
+                            ? "🎤"
+                            : "🏟️"}
+                        </div>
+
+                        <div className="resource-info">
+                          <span className="resource-type">
+                            {resource.type}
+                          </span>
+
+                          <h4>{resource.name}</h4>
+
+                          <p>
+                            📍 {resource.location}
+                          </p>
+
+                          <p>
+                            👥 Capacity: {resource.capacity}
+                          </p>
+                        </div>
+
+                        <div className="resource-status">
+                          <span className="available-dot"></span>
+                          Available
+                        </div>
+
+                        {selectedResource === resource.id && (
+                          <div className="selected-check">
+                            ✓
+                          </div>
+                        )}
+
+                      </button>
                     ))}
-                  </select>
-                </div>
 
-                <div className="form-group">
-                  <label htmlFor="user_name">
-                    Your Name
-                  </label>
-
-                  <input
-                    id="user_name"
-                    name="user_name"
-                    type="text"
-                    placeholder="Enter your name"
-                    value={formData.user_name}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="date">
-                    Date
-                  </label>
-
-                  <input
-                    id="date"
-                    name="date"
-                    type="date"
-                    value={formData.date}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div className="time-row">
-                  <div className="form-group">
-                    <label htmlFor="start_time">
-                      Start Time
-                    </label>
-
-                    <input
-                      id="start_time"
-                      name="start_time"
-                      type="time"
-                      value={formData.start_time}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="end_time">
-                      End Time
-                    </label>
-
-                    <input
-                      id="end_time"
-                      name="end_time"
-                      type="time"
-                      value={formData.end_time}
-                      onChange={handleChange}
-                      required
-                    />
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label htmlFor="purpose">
-                    Purpose
-                  </label>
+                <div className="submit-row">
 
-                  <input
-                    id="purpose"
-                    name="purpose"
-                    type="text"
-                    placeholder="Enter purpose of booking"
-                    value={formData.purpose}
-                    onChange={handleChange}
-                    required
-                  />
+                  <div className="selection-summary">
+                    {selectedResource ? (
+                      <>
+                        <span>Selected resource</span>
+                        <strong>
+                          {getResourceName(selectedResource)}
+                        </strong>
+                      </>
+                    ) : (
+                      <span>
+                        Select a resource to continue
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    className="primary-button"
+                    type="submit"
+                    disabled={loading}
+                  >
+                    {loading
+                      ? "Submitting..."
+                      : "Submit Booking Request →"}
+                  </button>
+
                 </div>
 
-                <button
-                  className="submit-button"
-                  type="submit"
-                >
-                  Submit Booking Request
-                </button>
               </form>
             </section>
 
-            {/* Student Bookings */}
-            <section className="bookings-section">
-              <h2>Bookings</h2>
+            {/* MY BOOKINGS */}
+            <section className="section-card">
 
-              {loadingBookings ? (
-                <p className="loading-text">
-                  Loading bookings...
-                </p>
-              ) : bookings.length === 0 ? (
-                <p className="loading-text">
-                  No bookings found.
-                </p>
+              <div className="section-heading">
+                <div>
+                  <span className="section-number">03</span>
+
+                  <div>
+                    <h3>My Bookings</h3>
+                    <p>
+                      Track your resource booking requests.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {bookings.length === 0 ? (
+                <div className="empty-state">
+                  <div>📋</div>
+                  <h4>No bookings yet</h4>
+                  <p>
+                    Your booking requests will appear here.
+                  </p>
+                </div>
               ) : (
                 <div className="booking-list">
+
                   {bookings.map((booking) => (
                     <div
-                      className="booking-card"
+                      className="booking-item"
                       key={booking.id}
                     >
-                      <div>
-                        <h3>
+
+                      <div className="booking-icon">
+                        📅
+                      </div>
+
+                      <div className="booking-details">
+
+                        <h4>
                           {getResourceName(
                             booking.resource_id
                           )}
-                        </h3>
+                        </h4>
 
                         <p>
-                          <strong>Booking ID:</strong>{" "}
-                          {booking.id}
-                        </p>
-
-                        <p>
-                          <strong>Name:</strong>{" "}
-                          {booking.user_name}
-                        </p>
-
-                        <p>
-                          <strong>Date:</strong>{" "}
-                          {booking.date}
-                        </p>
-
-                        <p>
-                          <strong>Time:</strong>{" "}
-                          {booking.start_time} -{" "}
+                          {booking.date} &nbsp;•&nbsp;
+                          {booking.start_time} –
                           {booking.end_time}
                         </p>
 
-                        <p>
-                          <strong>Purpose:</strong>{" "}
+                        <span>
                           {booking.purpose}
-                        </p>
+                        </span>
+
                       </div>
 
                       <span
-                        className={`status ${String(
+                        className={`status ${getStatusClass(
                           booking.status
-                        ).toLowerCase()}`}
+                        )}`}
                       >
                         {booking.status}
                       </span>
+
                     </div>
                   ))}
+
                 </div>
               )}
+
             </section>
           </>
         )}
 
-        {/* ============================
-            ADMIN DASHBOARD
-        ============================ */}
+        {/* ADMIN VIEW */}
         {mode === "admin" && (
           <>
-            <section className="dashboard-heading">
-              <h2>Admin Dashboard</h2>
-              <p>
-                Manage campus resource booking requests.
-              </p>
+            <section className="hero admin-hero">
+              <div>
+                <p className="eyebrow">ADMINISTRATION</p>
+
+                <h2>Manage campus bookings.</h2>
+
+                <p className="hero-text">
+                  Review, approve and reject resource booking
+                  requests from students.
+                </p>
+              </div>
+
+              <div className="hero-icon">
+                ⚙️
+              </div>
             </section>
 
-            <section className="admin-section">
-              <h2>Booking Requests</h2>
+            {/* ADMIN STATS */}
+            <section className="stats-grid">
 
-              {loadingBookings ? (
-                <p className="loading-text">
-                  Loading booking requests...
-                </p>
-              ) : bookings.length === 0 ? (
-                <p className="loading-text">
-                  No booking requests found.
-                </p>
+              <div className="stat-card">
+                <span className="stat-icon">🏫</span>
+
+                <div>
+                  <strong>{resources.length}</strong>
+                  <span>Resources</span>
+                </div>
+              </div>
+
+              <div className="stat-card">
+                <span className="stat-icon">⏳</span>
+
+                <div>
+                  <strong>{pendingCount}</strong>
+                  <span>Pending Requests</span>
+                </div>
+              </div>
+
+              <div className="stat-card">
+                <span className="stat-icon">✓</span>
+
+                <div>
+                  <strong>{approvedCount}</strong>
+                  <span>Approved</span>
+                </div>
+              </div>
+
+            </section>
+
+            {/* ADMIN BOOKINGS */}
+            <section className="section-card">
+
+              <div className="section-heading">
+                <div>
+                  <span className="section-number">01</span>
+
+                  <div>
+                    <h3>Booking Requests</h3>
+                    <p>
+                      Review and manage all booking requests.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {bookings.length === 0 ? (
+                <div className="empty-state">
+                  <div>📋</div>
+                  <h4>No booking requests</h4>
+                  <p>
+                    New requests will appear here.
+                  </p>
+                </div>
               ) : (
                 <div className="admin-booking-list">
+
                   {bookings.map((booking) => (
                     <div
-                      className="admin-booking-card"
+                      className="admin-booking"
                       key={booking.id}
                     >
-                      <div className="booking-details">
-                        <h3>
-                          {getResourceName(
-                            booking.resource_id
-                          )}
-                        </h3>
 
-                        <p>
-                          <strong>Booking ID:</strong>{" "}
-                          {booking.id}
-                        </p>
+                      <div className="admin-booking-main">
 
-                        <p>
-                          <strong>User:</strong>{" "}
-                          {booking.user_name}
-                        </p>
+                        <div className="booking-icon large">
+                          📅
+                        </div>
 
-                        <p>
-                          <strong>Date:</strong>{" "}
-                          {booking.date}
-                        </p>
+                        <div>
+                          <h4>
+                            {getResourceName(
+                              booking.resource_id
+                            )}
+                          </h4>
 
-                        <p>
-                          <strong>Time:</strong>{" "}
-                          {booking.start_time} -{" "}
-                          {booking.end_time}
-                        </p>
+                          <p className="booking-user">
+                            Requested by{" "}
+                            <strong>
+                              {booking.user_name}
+                            </strong>
+                          </p>
 
-                        <p>
-                          <strong>Purpose:</strong>{" "}
-                          {booking.purpose}
-                        </p>
+                          <p>
+                            {booking.date} &nbsp;•&nbsp;
+                            {booking.start_time} –
+                            {booking.end_time}
+                          </p>
 
-                        <p>
-                          <strong>Status:</strong>{" "}
-                          <span
-                            className={`status ${String(
-                              booking.status
-                            ).toLowerCase()}`}
-                          >
-                            {booking.status}
+                          <span className="booking-purpose">
+                            {booking.purpose}
                           </span>
-                        </p>
+                        </div>
+
                       </div>
 
-                      {booking.status === "PENDING" && (
-                        <div className="admin-actions">
-                          <button
-                            className="approve-button"
-                            onClick={() =>
-                              approveBooking(
-                                booking.id
-                              )
-                            }
-                          >
-                            Approve
-                          </button>
+                      <div className="admin-booking-actions">
 
-                          <button
-                            className="reject-button"
-                            onClick={() =>
-                              rejectBooking(
-                                booking.id
-                              )
-                            }
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      )}
+                        <span
+                          className={`status ${getStatusClass(
+                            booking.status
+                          )}`}
+                        >
+                          {booking.status}
+                        </span>
+
+                        {booking.status === "PENDING" && (
+                          <div className="action-buttons">
+
+                            <button
+                              className="approve-button"
+                              onClick={() =>
+                                approveBooking(
+                                  booking.id
+                                )
+                              }
+                            >
+                              ✓ Approve
+                            </button>
+
+                            <button
+                              className="reject-button"
+                              onClick={() =>
+                                rejectBooking(
+                                  booking.id
+                                )
+                              }
+                            >
+                              ✕ Reject
+                            </button>
+
+                          </div>
+                        )}
+
+                      </div>
+
                     </div>
                   ))}
+
                 </div>
               )}
+
             </section>
           </>
         )}
+
       </main>
+
+      {/* FOOTER */}
+      <footer className="footer">
+        <p>
+          SmartCampus Resource Booking System
+        </p>
+
+        <span>
+          AWS Powered • Secure • Scalable
+        </span>
+      </footer>
+
     </div>
   );
 }

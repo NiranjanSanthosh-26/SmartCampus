@@ -1402,3 +1402,99 @@ body {
   }
 
 }
+/* ==========================================================
+   WELCOME PAGE - ACTION BUTTONS
+   ========================================================== */
+
+.welcome-card .primary-button {
+  display: block;
+
+  width: 280px;
+  max-width: 100%;
+  height: 44px;
+
+  margin: 0 auto;
+
+  padding: 0 20px;
+
+  border: none;
+  border-radius: 9px;
+
+  background: #2563eb;
+  color: #ffffff;
+
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.1s ease;
+}
+
+.welcome-card .primary-button:hover {
+  background: #1d4ed8;
+
+  box-shadow:
+    0 5px 14px rgba(37, 99, 235, 0.22);
+}
+
+.welcome-card .primary-button:active {
+  transform: translateY(1px);
+}
+
+
+/* ============================================================
+   CREATE ACCOUNT BUTTON
+   ============================================================ */
+
+.welcome-card .secondary-button {
+  display: block;
+
+  width: 280px;
+  max-width: 100%;
+  height: 44px;
+
+  margin: 10px auto 0;
+
+  padding: 0 20px;
+
+  box-sizing: border-box;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+
+  background: #ffffff;
+  color: #1e293b;
+
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.1s ease;
+}
+
+.welcome-card .secondary-button:hover {
+  background: #f8fafc;
+
+  border-color: #2563eb;
+
+  color: #2563eb;
+
+  box-shadow:
+    0 3px 10px rgba(37, 99, 235, 0.10);
+}
+
+.welcome-card .secondary-button:active {
+  transform: translateY(1px);
+}

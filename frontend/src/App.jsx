@@ -1,873 +1,949 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "react-oidc-context";
 import "./App.css";
+
+
+// ============================================================
+// AWS API CONFIGURATION
+// ============================================================
 
 const API_URL =
   "https://ccciuksuuk.execute-api.ap-southeast-2.amazonaws.com";
 
-const COGNITO_DOMAIN =
-  "https://ap-southeast-2tcn2pfyzg.auth.ap-southeast-2.amazoncognito.com";
 
-const COGNITO_CLIENT_ID =
-  "2ccooos6njocfrr07h9g99lc7u";
+// ============================================================
+// COGNITO CONFIGURATION
+// ============================================================
 
-const LOGOUT_URI = "http://localhost:5173/";
+const cognitoAuthConfig = {
+  authority:
+    "https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_TcN2PfyZG",
 
-function App() {
+  client_id:
+    "2ccooos6njocfrr07h9g99lc7u",
+
+  redirect_uri:
+    window.location.origin + "/",
+
+  response_type: "code",
+
+  scope: "openid email",
+
+  automaticSilentRenew: true
+};
+
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
+
+function getStatusClass(status) {
+  if (!status) {
+    return "";
+  }
+
+  return status.toLowerCase();
+}
+
+
+function formatDate(date) {
+  if (!date) {
+    return "";
+  }
+
+  const d = new Date(date + "T00:00:00");
+
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+}
+
+
+// ============================================================
+// APP COMPONENT
+// ============================================================
+
+export default function App() {
+
   const auth = useAuth();
 
-  // --------------------------------------------------
-  // COGNITO SIGN OUT
-  // --------------------------------------------------
-  // Cognito managed login expects client_id + logout_uri
-  // on its /logout endpoint. Clear the local OIDC user
-  // first, then terminate the Cognito managed-login session.
-  async function handleSignOut() {
-    const params = new URLSearchParams({
-      client_id: COGNITO_CLIENT_ID,
-      logout_uri: LOGOUT_URI,
-    });
 
-    const logoutUrl = `${COGNITO_DOMAIN}/logout?${params.toString()}`;
-
-    try {
-      await auth.removeUser();
-    } catch (err) {
-      console.error("Unable to clear local authentication state:", err);
-    } finally {
-      window.location.replace(logoutUrl);
-    }
-  }
-
-  // --------------------------------------------------
-  // COGNITO USER / ROLE INFORMATION
-  // --------------------------------------------------
-
-  const groups = auth.user?.profile?.["cognito:groups"] || [];
-
-  const isAdmin = groups.includes("Admins");
-  const isStudent = groups.includes("Students");
-
-  const displayName =
-    auth.user?.profile?.name ||
-    auth.user?.profile?.preferred_username ||
-    auth.user?.profile?.email ||
-    "User";
-
-  const avatarLetter = displayName.charAt(0).toUpperCase();
-
-  // --------------------------------------------------
-  // APPLICATION STATE
-  // --------------------------------------------------
+  // ==========================================================
+  // STATE
+  // ==========================================================
 
   const [resources, setResources] = useState([]);
+
   const [bookings, setBookings] = useState([]);
 
-  const [selectedResource, setSelectedResource] = useState("");
-  const [userName, setUserName] = useState("Niranjan");
-  const [date, setDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [purpose, setPurpose] = useState("");
+  const [selectedResource, setSelectedResource] =
+    useState(null);
 
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [activePage, setActivePage] =
+    useState("dashboard");
 
-  // --------------------------------------------------
-  // LOAD DATA AFTER AUTHENTICATION
-  // --------------------------------------------------
+  const [selectedDate, setSelectedDate] =
+    useState("");
 
-  useEffect(() => {
-    if (auth.isAuthenticated) {
-      loadResources();
-      loadBookings();
+  const [startTime, setStartTime] =
+    useState("");
 
-      const email = auth.user?.profile?.email;
+  const [endTime, setEndTime] =
+    useState("");
 
-      if (email) {
-        setUserName(email);
-      }
-    }
-  }, [auth.isAuthenticated, auth.user]);
+  const [purpose, setPurpose] =
+    useState("");
 
-  // --------------------------------------------------
+  const [message, setMessage] =
+    useState("");
+
+  const [error, setError] =
+    useState("");
+
+  const [loading, setLoading] =
+    useState(false);
+
+
+  // ==========================================================
+  // USER INFORMATION
+  // ==========================================================
+
+  const userEmail =
+    auth.user?.profile?.email || "";
+
+  const userName =
+    auth.user?.profile?.name ||
+    auth.user?.profile?.email ||
+    "Student";
+
+
+  // ==========================================================
+  // ROLE DETECTION
+  // ==========================================================
+
+  const isAdmin =
+    auth.user?.profile?.["cognito:groups"]?.includes(
+      "Admins"
+    );
+
+
+  // ==========================================================
   // LOAD RESOURCES
-  // --------------------------------------------------
+  // ==========================================================
 
   async function loadResources() {
-    try {
-      const response = await fetch(`${API_URL}/resources`);
-      const data = await response.json();
 
-      setResources(
-        Array.isArray(data.resources) ? data.resources : []
-      );
+    try {
+
+      const response =
+        await fetch(
+          `${API_URL}/resources`
+        );
+
+      const data =
+        await response.json();
+
+      if (response.ok) {
+
+        setResources(
+          data.resources || []
+        );
+
+      }
+
     } catch (err) {
+
       console.error(err);
-      setError("Unable to load resources.");
+
+      setError(
+        "Unable to load resources."
+      );
     }
   }
 
-  // --------------------------------------------------
+
+  // ==========================================================
   // LOAD BOOKINGS
-  // --------------------------------------------------
+  // ==========================================================
 
   async function loadBookings() {
-    try {
-      const response = await fetch(`${API_URL}/bookings`);
-      const data = await response.json();
 
-      setBookings(
-        Array.isArray(data.bookings) ? data.bookings : []
-      );
+    try {
+
+      const response =
+        await fetch(
+          `${API_URL}/bookings`
+        );
+
+      const data =
+        await response.json();
+
+      if (response.ok) {
+
+        setBookings(
+          data.bookings || []
+        );
+
+      }
+
     } catch (err) {
+
       console.error(err);
-      setError("Unable to load bookings.");
+
+      setError(
+        "Unable to load bookings."
+      );
     }
   }
 
-  // --------------------------------------------------
+
+  // ==========================================================
+  // INITIAL DATA LOAD
+  // ==========================================================
+
+  useEffect(() => {
+
+    if (!auth.isAuthenticated) {
+      return;
+    }
+
+    loadResources();
+    loadBookings();
+
+  }, [auth.isAuthenticated]);
+
+
+  // ==========================================================
   // CLEAR MESSAGES
-  // --------------------------------------------------
+  // ==========================================================
 
   function clearMessages() {
+
     setMessage("");
     setError("");
+
   }
 
-  // --------------------------------------------------
-  // CREATE BOOKING
-  // --------------------------------------------------
 
-  async function handleBookingSubmit(event) {
+  // ==========================================================
+  // CREATE BOOKING
+  // ==========================================================
+
+  async function createBooking(event) {
+
     event.preventDefault();
 
     clearMessages();
 
     if (!selectedResource) {
-      setError("Please select a resource.");
+
+      setError(
+        "Please select a resource."
+      );
+
       return;
     }
 
-    if (!date || !startTime || !endTime || !purpose) {
-      setError("Please fill in all booking details.");
+    if (!selectedDate) {
+
+      setError(
+        "Please select a date."
+      );
+
+      return;
+    }
+
+    if (!startTime || !endTime) {
+
+      setError(
+        "Please select start and end time."
+      );
+
       return;
     }
 
     if (startTime >= endTime) {
-      setError("End time must be after start time.");
+
+      setError(
+        "End time must be later than start time."
+      );
+
       return;
     }
+
+    if (!purpose.trim()) {
+
+      setError(
+        "Please enter the purpose."
+      );
+
+      return;
+    }
+
 
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/bookings`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          resource_id: selectedResource,
-          user_name: userName,
-          date,
-          start_time: startTime,
-          end_time: endTime,
-          purpose,
-        }),
-      });
 
-      const data = await response.json();
+      const response =
+        await fetch(
+          `${API_URL}/bookings`,
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            body: JSON.stringify({
+
+              resource_id:
+                selectedResource.id,
+
+              user_name:
+                userName,
+
+              user_email:
+                userEmail,
+
+              date:
+                selectedDate,
+
+              start_time:
+                startTime,
+
+              end_time:
+                endTime,
+
+              purpose:
+                purpose.trim()
+            })
+          }
+        );
+
+
+      const data =
+        await response.json();
+
 
       if (!response.ok) {
-        setError(data.message || "Booking could not be created.");
+
+        setError(
+          data.message ||
+          "Unable to create booking."
+        );
+
         return;
       }
 
-      setMessage("Booking request submitted successfully.");
 
-      setSelectedResource("");
-      setDate("");
+      setMessage(
+        "Booking request submitted successfully."
+      );
+
+
+      // Reset form
+      setSelectedResource(null);
+      setSelectedDate("");
       setStartTime("");
       setEndTime("");
       setPurpose("");
 
+
+      // Refresh bookings
       await loadBookings();
+
     } catch (err) {
+
       console.error(err);
-      setError("Unable to connect to the booking service.");
+
+      setError(
+        "Unable to create booking."
+      );
+
     } finally {
+
       setLoading(false);
     }
   }
 
-  // --------------------------------------------------
+
+  // ==========================================================
   // APPROVE BOOKING
-  // --------------------------------------------------
+  // ==========================================================
 
   async function approveBooking(id) {
+
     clearMessages();
 
     try {
-      const response = await fetch(
-        `${API_URL}/bookings/${id}/approve`,
-        {
-          method: "PATCH",
-        }
-      );
 
-      const data = await response.json();
+      const response =
+        await fetch(
+          `${API_URL}/bookings/${id}/approve`,
+          {
+            method: "PATCH"
+          }
+        );
+
+
+      const data =
+        await response.json();
+
 
       if (!response.ok) {
-        setError(data.message || "Unable to approve booking.");
+
+        setError(
+          data.message ||
+          "Unable to approve booking."
+        );
+
         return;
       }
 
-      setMessage("Booking approved successfully.");
+
+      setMessage(
+        "Booking approved successfully."
+      );
+
+
       await loadBookings();
+
     } catch (err) {
+
       console.error(err);
-      setError("Unable to approve booking.");
+
+      setError(
+        "Unable to approve booking."
+      );
     }
   }
 
-  // --------------------------------------------------
+
+  // ==========================================================
   // REJECT BOOKING
-  // --------------------------------------------------
+  // ==========================================================
 
   async function rejectBooking(id) {
+
     clearMessages();
 
     try {
-      const response = await fetch(
-        `${API_URL}/bookings/${id}/reject`,
-        {
-          method: "PATCH",
-        }
-      );
 
-      const data = await response.json();
+      const response =
+        await fetch(
+          `${API_URL}/bookings/${id}/reject`,
+          {
+            method: "PATCH"
+          }
+        );
+
+
+      const data =
+        await response.json();
+
 
       if (!response.ok) {
-        setError(data.message || "Unable to reject booking.");
+
+        setError(
+          data.message ||
+          "Unable to reject booking."
+        );
+
         return;
       }
 
-      setMessage("Booking rejected successfully.");
+
+      setMessage(
+        "Booking rejected successfully."
+      );
+
+
       await loadBookings();
+
     } catch (err) {
+
       console.error(err);
-      setError("Unable to reject booking.");
+
+      setError(
+        "Unable to reject booking."
+      );
     }
   }
 
-  // --------------------------------------------------
-  // HELPER FUNCTIONS
-  // --------------------------------------------------
 
-  function getResourceName(resourceId) {
-    const resource = resources.find(
-      (item) => item.id === resourceId
-    );
+  // ==========================================================
+  // WITHDRAW BOOKING
+  // ==========================================================
 
-    return resource ? resource.name : resourceId;
+  async function withdrawBooking(id) {
+
+    clearMessages();
+
+
+    // --------------------------------------------------------
+    // Make sure the logged-in student has an email
+    // --------------------------------------------------------
+
+    const currentUserEmail =
+      auth.user?.profile?.email;
+
+
+    if (!currentUserEmail) {
+
+      setError(
+        "Unable to identify your account."
+      );
+
+      return;
+    }
+
+
+    try {
+
+      const response =
+        await fetch(
+          `${API_URL}/bookings/${id}/withdraw`,
+          {
+            method: "PATCH",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            body: JSON.stringify({
+
+              user_email:
+                currentUserEmail
+
+            })
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+
+        setError(
+          data.message ||
+          "Unable to withdraw booking."
+        );
+
+        return;
+      }
+
+
+      setMessage(
+        "Booking withdrawn successfully."
+      );
+
+
+      // Refresh booking list
+      await loadBookings();
+
+    } catch (err) {
+
+      console.error(err);
+
+      setError(
+        "Unable to withdraw booking."
+      );
+    }
   }
 
-  function getStatusClass(status) {
-    return status?.toLowerCase() || "";
+
+  // ==========================================================
+  // LOGOUT
+  // ==========================================================
+
+  function logout() {
+    const clientId =
+      "2ccooos6njocfrr07h9g99lc7u";
+
+    const cognitoDomain =
+      "https://ap-southeast-2tcn2pfyzg.auth.ap-southeast-2.amazoncognito.com";
+
+    const logoutUri =
+      `${window.location.origin}/`;
+
+    // Clear the local OIDC session first
+    auth.removeUser();
+
+    // Then log out from Cognito
+    const logoutUrl =
+      `${cognitoDomain}/logout` +
+      `?client_id=${encodeURIComponent(clientId)}` +
+      `&logout_uri=${encodeURIComponent(logoutUri)}`;
+
+    window.location.replace(logoutUrl);
   }
 
-  const pendingCount = bookings.filter(
-    (booking) => booking.status === "PENDING"
-  ).length;
 
-  const approvedCount = bookings.filter(
-    (booking) => booking.status === "APPROVED"
-  ).length;
-
-  // --------------------------------------------------
-  // AUTHENTICATION LOADING SCREEN
-  // --------------------------------------------------
+  // ==========================================================
+  // LOGIN
+  // ==========================================================
 
   if (auth.isLoading) {
+
     return (
-      <div className="app">
-        <main className="main-container">
-          <section className="section-card">
-            <div className="empty-state">
-              <div>🔐</div>
-              <h4>Checking your login...</h4>
-              <p>
-                Please wait while SmartCampus verifies your
-                account.
-              </p>
-            </div>
-          </section>
-        </main>
+      <div className="loading-screen">
+
+        <div className="loading-card">
+
+          <h2>
+            SmartCampus
+          </h2>
+
+          <p>
+            Loading...
+          </p>
+
+        </div>
+
       </div>
     );
   }
 
-  // --------------------------------------------------
-  // AUTHENTICATION ERROR
-  // --------------------------------------------------
 
   if (auth.error) {
+
     return (
-      <div className="app">
-        <main className="main-container">
-          <section className="section-card">
-            <div className="empty-state">
-              <div>⚠️</div>
+      <div className="loading-screen">
 
-              <h4>Authentication Error</h4>
+        <div className="loading-card">
 
-              <p>{auth.error.message}</p>
+          <h2>
+            Authentication Error
+          </h2>
 
-              <button
-                className="primary-button"
-                onClick={() => auth.signinRedirect()}
-              >
-                Try Again
-              </button>
-            </div>
-          </section>
-        </main>
+          <p>
+            {auth.error.message}
+          </p>
+
+        </div>
+
       </div>
     );
   }
 
-  // --------------------------------------------------
-  // LOGIN SCREEN
-  // --------------------------------------------------
+
+  // ==========================================================
+  // PUBLIC WELCOME PAGE
+  // ==========================================================
 
   if (!auth.isAuthenticated) {
+
     return (
-      <div className="app">
-        <main className="main-container">
-          <section className="hero">
-            <div>
-              <p className="eyebrow">SMART CAMPUS</p>
+      <div className="welcome-page">
 
-              <h2>Welcome to SmartCampus.</h2>
+        <div className="welcome-card">
 
-              <p className="hero-text">
-                Sign in to book campus resources and manage your
-                booking requests.
-              </p>
-
-              <button
-                className="primary-button"
-                onClick={() => auth.signinRedirect()}
-              >
-                Sign in with Cognito →
-              </button>
-            </div>
-
-            <div className="hero-icon">
-              🔐
-            </div>
-          </section>
-        </main>
-
-        <footer className="footer">
-          <p>SmartCampus Resource Booking System</p>
-
-          <span>
-            AWS Powered • Secure • Scalable
-          </span>
-        </footer>
-      </div>
-    );
-  }
-
-  // --------------------------------------------------
-  // AUTHENTICATED USER WITHOUT A ROLE
-  // --------------------------------------------------
-
-  if (!isStudent && !isAdmin) {
-    return (
-      <div className="app">
-        <main className="main-container">
-          <section className="section-card">
-            <div className="empty-state">
-              <div>🚫</div>
-
-              <h4>No SmartCampus role assigned</h4>
-
-              <p>
-                Your Cognito account is authenticated, but it is
-                not assigned to the Students or Admins group.
-              </p>
-
-              <button
-                className="primary-button"
-                onClick={handleSignOut}
-              >
-                Sign Out
-              </button>
-            </div>
-          </section>
-        </main>
-      </div>
-    );
-  }
-
-  // --------------------------------------------------
-  // MAIN APPLICATION
-  // --------------------------------------------------
-
-  return (
-    <div className="app">
-
-      {/* HEADER */}
-      <header className="topbar">
-
-        <div className="brand">
-
-          <div className="brand-icon">
-            🏫
+          <div className="brand-mark">
+            SC
           </div>
+
+          <h1>
+            SmartCampus
+          </h1>
+
+          <p>
+            Smart Resource Booking &
+            Allocation System
+          </p>
+
+          <button
+            className="primary-button"
+            onClick={() =>
+              auth.signinRedirect()
+            }
+          >
+            Sign in with Cognito
+          </button>
+
+        </div>
+
+      </div>
+    );
+  }
+
+
+  // ==========================================================
+  // CALCULATED BOOKING DATA
+  // ==========================================================
+
+  const myBookings =
+    bookings.filter(
+      booking =>
+        booking.user_email ===
+        userEmail
+    );
+
+
+  const pendingBookings =
+    bookings.filter(
+      booking =>
+        booking.status === "PENDING"
+    );
+
+
+  const approvedBookings =
+    bookings.filter(
+      booking =>
+        booking.status === "APPROVED"
+    );
+
+
+  const rejectedBookings =
+    bookings.filter(
+      booking =>
+        booking.status === "REJECTED"
+    );
+
+
+  const withdrawnBookings =
+    bookings.filter(
+      booking =>
+        booking.status === "WITHDRAWN"
+    );
+
+
+  // ==========================================================
+  // RESOURCE NAME HELPER
+  // ==========================================================
+
+  function getResourceName(resourceId) {
+
+    const resource =
+      resources.find(
+        item =>
+          item.id === resourceId
+      );
+
+    return resource
+      ? resource.name
+      : resourceId;
+  }
+
+
+  // ==========================================================
+  // STUDENT DASHBOARD
+  // ==========================================================
+
+  function renderStudentDashboard() {
+
+    return (
+      <>
+
+        <div className="page-header">
 
           <div>
-            <h1>SmartCampus</h1>
+
+            <h1>
+              Welcome back,
+              {" "}
+              {userName}
+            </h1>
 
             <p>
-              Resource Booking System
+              Manage your campus
+              resource bookings.
             </p>
-          </div>
-
-        </div>
-
-        <div className="topbar-right">
-
-          {/* LOGGED-IN USER */}
-          <div className="user-info">
-
-            <span className="user-avatar">
-              {avatarLetter}
-            </span>
-
-            <div>
-
-              <strong>
-                {displayName}
-              </strong>
-
-              <span>
-                {isAdmin ? "Admin" : "Student"}
-              </span>
-
-            </div>
-
-          </div>
-
-          {/* ROLE + SIGN OUT */}
-          <div className="mode-switch">
-
-            <span
-              style={{
-                padding: "10px 14px",
-                fontWeight: "600",
-                color: "#1f3c88",
-              }}
-            >
-              {isAdmin ? "Admin" : "Student"}
-            </span>
-
-            <button
-              onClick={handleSignOut}
-            >
-              Sign Out
-            </button>
 
           </div>
 
         </div>
 
-      </header>
 
-      {/* MAIN CONTENT */}
-      <main className="main-container">
+        <div className="stats-grid">
 
-        {/* NOTIFICATIONS */}
+          <div className="stat-card">
 
-        {message && (
-          <div className="alert success-alert">
-            ✓ {message}
+            <span>
+              My Bookings
+            </span>
+
+            <strong>
+              {myBookings.length}
+            </strong>
+
           </div>
-        )}
 
-        {error && (
-          <div className="alert error-alert">
-            ⚠ {error}
+
+          <div className="stat-card">
+
+            <span>
+              Pending
+            </span>
+
+            <strong>
+              {
+                myBookings.filter(
+                  b =>
+                    b.status ===
+                    "PENDING"
+                ).length
+              }
+            </strong>
+
           </div>
-        )}
 
-        {/* ==================================================
-            STUDENT VIEW
-        ================================================== */}
 
-        {isStudent && (
-          <>
+          <div className="stat-card">
 
-            {/* HERO */}
+            <span>
+              Approved
+            </span>
 
-            <section className="hero">
+            <strong>
+              {
+                myBookings.filter(
+                  b =>
+                    b.status ===
+                    "APPROVED"
+                ).length
+              }
+            </strong>
+
+          </div>
+
+
+          <div className="stat-card">
+
+            <span>
+              Available Resources
+            </span>
+
+            <strong>
+              {resources.length}
+            </strong>
+
+          </div>
+
+        </div>
+
+
+        <div className="dashboard-grid">
+
+          <div className="dashboard-card">
+
+            <div className="card-heading">
 
               <div>
 
-                <p className="eyebrow">
-                  CAMPUS RESOURCE MANAGEMENT
-                </p>
-
                 <h2>
-                  Book the resources you need.
+                  Quick Booking
                 </h2>
 
-                <p className="hero-text">
-                  Find available campus facilities and submit
-                  booking requests in just a few clicks.
+                <p>
+                  Reserve a campus
+                  resource.
                 </p>
 
               </div>
 
-              <div className="hero-icon">
-                📅
-              </div>
-
-            </section>
-
-            {/* BOOKING SECTION */}
-
-            <section className="section-card booking-section">
-
-              <div className="section-heading">
-
-                <div>
-
-                  <span className="section-number">
-                    01
-                  </span>
-
-                  <div>
-
-                    <h3>
-                      Booking Details
-                    </h3>
-
-                    <p>
-                      Select when you need the resource.
-                    </p>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-              <form
-                className="booking-form"
-                onSubmit={handleBookingSubmit}
+              <button
+                className="secondary-button"
+                onClick={() =>
+                  setActivePage(
+                    "resources"
+                  )
+                }
               >
+                View Resources
+              </button>
 
-                <div className="form-grid">
+            </div>
 
-                  {/* DATE */}
+          </div>
 
-                  <div className="form-group">
 
-                    <label>
-                      Date
-                    </label>
+          <div className="dashboard-card">
 
-                    <input
-                      type="date"
-                      value={date}
-                      onChange={(e) =>
-                        setDate(e.target.value)
-                      }
-                    />
+            <div className="card-heading">
 
-                  </div>
+              <div>
 
-                  {/* START TIME */}
+                <h2>
+                  Recent Bookings
+                </h2>
 
-                  <div className="form-group">
-
-                    <label>
-                      Start Time
-                    </label>
-
-                    <input
-                      type="time"
-                      value={startTime}
-                      onChange={(e) =>
-                        setStartTime(e.target.value)
-                      }
-                    />
-
-                  </div>
-
-                  {/* END TIME */}
-
-                  <div className="form-group">
-
-                    <label>
-                      End Time
-                    </label>
-
-                    <input
-                      type="time"
-                      value={endTime}
-                      onChange={(e) =>
-                        setEndTime(e.target.value)
-                      }
-                    />
-
-                  </div>
-
-                </div>
-
-                {/* PURPOSE */}
-
-                <div className="form-group full-width">
-
-                  <label>
-                    Purpose of Booking
-                  </label>
-
-                  <input
-                    type="text"
-                    placeholder="e.g. Software Engineering Project"
-                    value={purpose}
-                    onChange={(e) =>
-                      setPurpose(e.target.value)
-                    }
-                  />
-
-                </div>
-
-                {/* RESOURCE SELECTION */}
-
-                <div className="resource-selection">
-
-                  <div className="selection-title">
-
-                    <div>
-
-                      <span className="section-number">
-                        02
-                      </span>
-
-                      <div>
-
-                        <h3>
-                          Select a Resource
-                        </h3>
-
-                        <p>
-                          Choose the facility you want to book.
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                  <div className="resource-grid">
-
-                    {resources.map((resource) => (
-
-                      <button
-                        type="button"
-                        key={resource.id}
-                        className={`resource-card ${
-                          selectedResource === resource.id
-                            ? "selected"
-                            : ""
-                        }`}
-                        onClick={() =>
-                          setSelectedResource(resource.id)
-                        }
-                      >
-
-                        <div className="resource-icon">
-
-                          {resource.type === "Laboratory"
-                            ? "💻"
-                            : resource.type === "Seminar Hall"
-                            ? "🎤"
-                            : "🏟️"}
-
-                        </div>
-
-                        <div className="resource-info">
-
-                          <span className="resource-type">
-                            {resource.type}
-                          </span>
-
-                          <h4>
-                            {resource.name}
-                          </h4>
-
-                          <p>
-                            📍 {resource.location}
-                          </p>
-
-                          <p>
-                            👥 Capacity: {resource.capacity}
-                          </p>
-
-                        </div>
-
-                        <div className="resource-status">
-
-                          <span className="available-dot"></span>
-
-                          Available
-
-                        </div>
-
-                        {selectedResource === resource.id && (
-                          <div className="selected-check">
-                            ✓
-                          </div>
-                        )}
-
-                      </button>
-
-                    ))}
-
-                  </div>
-
-                </div>
-
-                {/* SUBMIT */}
-
-                <div className="submit-row">
-
-                  <div className="selection-summary">
-
-                    {selectedResource ? (
-                      <>
-                        <span>
-                          Selected resource
-                        </span>
-
-                        <strong>
-                          {getResourceName(
-                            selectedResource
-                          )}
-                        </strong>
-                      </>
-                    ) : (
-                      <span>
-                        Select a resource to continue
-                      </span>
-                    )}
-
-                  </div>
-
-                  <button
-                    className="primary-button"
-                    type="submit"
-                    disabled={loading}
-                  >
-                    {loading
-                      ? "Submitting..."
-                      : "Submit Booking Request →"}
-                  </button>
-
-                </div>
-
-              </form>
-
-            </section>
-
-            {/* MY BOOKINGS */}
-
-            <section className="section-card">
-
-              <div className="section-heading">
-
-                <div>
-
-                  <span className="section-number">
-                    03
-                  </span>
-
-                  <div>
-
-                    <h3>
-                      My Bookings
-                    </h3>
-
-                    <p>
-                      Track your resource booking requests.
-                    </p>
-
-                  </div>
-
-                </div>
+                <p>
+                  Your latest requests.
+                </p>
 
               </div>
 
-              {bookings.length === 0 ? (
+              <button
+                className="secondary-button"
+                onClick={() =>
+                  setActivePage(
+                    "bookings"
+                  )
+                }
+              >
+                View All
+              </button>
 
-                <div className="empty-state">
+            </div>
 
-                  <div>
-                    📋
-                  </div>
 
-                  <h4>
-                    No bookings yet
-                  </h4>
+            {myBookings.length === 0 ? (
 
-                  <p>
-                    Your booking requests will appear here.
-                  </p>
+              <div className="empty-state">
 
-                </div>
+                <p>
+                  No bookings yet.
+                </p>
 
-              ) : (
+              </div>
 
-                <div className="booking-list">
+            ) : (
 
-                  {bookings.map((booking) => (
+              <div className="booking-list">
+
+                {myBookings
+                  .slice(-3)
+                  .reverse()
+                  .map(booking => (
 
                     <div
-                      className="booking-item"
+                      className="booking-row"
                       key={booking.id}
                     >
 
-                      <div className="booking-icon">
-                        📅
-                      </div>
+                      <div>
 
-                      <div className="booking-details">
-
-                        <h4>
-                          {getResourceName(
-                            booking.resource_id
-                          )}
-                        </h4>
-
-                        <p>
-                          {booking.date} &nbsp;•&nbsp;
-                          {booking.start_time} –
-                          {booking.end_time}
-                        </p>
+                        <strong>
+                          {
+                            getResourceName(
+                              booking.resource_id
+                            )
+                          }
+                        </strong>
 
                         <span>
-                          {booking.purpose}
+                          {formatDate(
+                            booking.date
+                          )}
+                          {" • "}
+                          {
+                            booking.start_time
+                          }
+                          {" - "}
+                          {
+                            booking.end_time
+                          }
                         </span>
 
                       </div>
+
 
                       <span
                         className={`status ${getStatusClass(
@@ -881,283 +957,956 @@ function App() {
 
                   ))}
 
-                </div>
+              </div>
 
-              )}
+            )}
 
-            </section>
+          </div>
 
-          </>
-        )}
+        </div>
 
-        {/* ==================================================
-            ADMIN VIEW
-        ================================================== */}
+      </>
+    );
+  }
 
-        {isAdmin && (
-          <>
 
-            {/* ADMIN HERO */}
+  // ==========================================================
+  // RESOURCE PAGE
+  // ==========================================================
 
-            <section className="hero admin-hero">
+  function renderResources() {
+
+    return (
+      <>
+
+        <div className="page-header">
+
+          <div>
+
+            <h1>
+              Select a Resource
+            </h1>
+
+            <p>
+              Choose the resource you
+              want to reserve.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div className="resource-grid">
+
+          {resources.map(resource => (
+
+            <div
+              className={`resource-card ${
+                selectedResource?.id ===
+                resource.id
+                  ? "selected"
+                  : ""
+              }`}
+              key={resource.id}
+              onClick={() =>
+                setSelectedResource(
+                  resource
+                )
+              }
+            >
+
+              <div className="resource-icon">
+                {resource.name
+                  ?.charAt(0)
+                  ?.toUpperCase()}
+              </div>
+
+
+              <div className="resource-content">
+
+                <h3>
+                  {resource.name}
+                </h3>
+
+                <p>
+                  {resource.type}
+                </p>
+
+                <span>
+                  {resource.location}
+                  {" • "}
+                  Capacity:
+                  {" "}
+                  {resource.capacity}
+                </span>
+
+              </div>
+
+
+              <div className="resource-availability">
+
+                <span className="available-dot"></span>
+
+                Available
+
+              </div>
+
+            </div>
+
+          ))}
+
+        </div>
+
+
+        {selectedResource && (
+
+          <div className="booking-form-card">
+
+            <div className="card-heading">
 
               <div>
 
-                <p className="eyebrow">
-                  ADMINISTRATION
-                </p>
-
                 <h2>
-                  Manage campus bookings.
+                  Booking Details
                 </h2>
 
-                <p className="hero-text">
-                  Review, approve and reject resource booking
-                  requests from students.
+                <p>
+                  {
+                    selectedResource.name
+                  }
                 </p>
 
               </div>
 
-              <div className="hero-icon">
-                ⚙️
-              </div>
+            </div>
 
-            </section>
 
-            {/* ADMIN STATS */}
+            <form
+              onSubmit={
+                createBooking
+              }
+            >
 
-            <section className="stats-grid">
+              <div className="form-grid">
 
-              <div className="stat-card">
+                <div className="form-group">
 
-                <span className="stat-icon">
-                  🏫
-                </span>
+                  <label>
+                    Date
+                  </label>
 
-                <div>
+                  <input
+                    type="date"
+                    value={
+                      selectedDate
+                    }
+                    onChange={event =>
+                      setSelectedDate(
+                        event.target.value
+                      )
+                    }
+                  />
 
-                  <strong>
-                    {resources.length}
-                  </strong>
+                </div>
 
-                  <span>
-                    Resources
-                  </span>
+
+                <div className="form-group">
+
+                  <label>
+                    Start Time
+                  </label>
+
+                  <input
+                    type="time"
+                    value={
+                      startTime
+                    }
+                    onChange={event =>
+                      setStartTime(
+                        event.target.value
+                      )
+                    }
+                  />
+
+                </div>
+
+
+                <div className="form-group">
+
+                  <label>
+                    End Time
+                  </label>
+
+                  <input
+                    type="time"
+                    value={
+                      endTime
+                    }
+                    onChange={event =>
+                      setEndTime(
+                        event.target.value
+                      )
+                    }
+                  />
+
+                </div>
+
+
+                <div className="form-group full-width">
+
+                  <label>
+                    Purpose
+                  </label>
+
+                  <textarea
+                    value={
+                      purpose
+                    }
+                    onChange={event =>
+                      setPurpose(
+                        event.target.value
+                      )
+                    }
+                    placeholder="Enter the purpose of your booking"
+                    rows="4"
+                  />
 
                 </div>
 
               </div>
 
-              <div className="stat-card">
 
-                <span className="stat-icon">
-                  ⏳
-                </span>
+              <div className="form-actions">
 
-                <div>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() =>
+                    setSelectedResource(
+                      null
+                    )
+                  }
+                >
+                  Cancel
+                </button>
 
-                  <strong>
-                    {pendingCount}
-                  </strong>
 
-                  <span>
-                    Pending Requests
-                  </span>
-
-                </div>
-
-              </div>
-
-              <div className="stat-card">
-
-                <span className="stat-icon">
-                  ✓
-                </span>
-
-                <div>
-
-                  <strong>
-                    {approvedCount}
-                  </strong>
-
-                  <span>
-                    Approved
-                  </span>
-
-                </div>
+                <button
+                  type="submit"
+                  className="primary-button"
+                  disabled={loading}
+                >
+                  {loading
+                    ? "Submitting..."
+                    : "Submit Booking"}
+                </button>
 
               </div>
 
-            </section>
+            </form>
 
-            {/* ADMIN BOOKINGS */}
+          </div>
 
-            <section className="section-card">
+        )}
 
-              <div className="section-heading">
+      </>
+    );
+  }
 
-                <div>
 
-                  <span className="section-number">
-                    01
-                  </span>
+  // ==========================================================
+  // STUDENT BOOKINGS PAGE
+  // ==========================================================
 
-                  <div>
+  function renderStudentBookings() {
 
-                    <h3>
-                      Booking Requests
-                    </h3>
+    return (
+      <>
 
-                    <p>
-                      Review and manage all booking requests.
-                    </p>
+        <div className="page-header">
 
-                  </div>
+          <div>
 
-                </div>
+            <h1>
+              My Bookings
+            </h1>
 
-              </div>
+            <p>
+              Track the status of
+              your booking requests.
+            </p>
 
-              {bookings.length === 0 ? (
+          </div>
 
-                <div className="empty-state">
+        </div>
 
-                  <div>
-                    📋
-                  </div>
 
-                  <h4>
-                    No booking requests
-                  </h4>
+        <div className="dashboard-card">
 
-                  <p>
-                    New requests will appear here.
-                  </p>
+          {myBookings.length === 0 ? (
 
-                </div>
+            <div className="empty-state">
 
-              ) : (
+              <h3>
+                No bookings found
+              </h3>
 
-                <div className="admin-booking-list">
+              <p>
+                You have not submitted
+                any booking requests yet.
+              </p>
 
-                  {bookings.map((booking) => (
+            </div>
 
-                    <div
-                      className="admin-booking"
-                      key={booking.id}
-                    >
+          ) : (
 
-                      <div className="admin-booking-main">
+            <div className="booking-list">
 
-                        <div className="booking-icon large">
-                          📅
-                        </div>
+              {myBookings
+                .slice()
+                .reverse()
+                .map(booking => (
 
-                        <div>
+                  <div
+                    className="booking-row"
+                    key={booking.id}
+                  >
 
-                          <h4>
-                            {getResourceName(
-                              booking.resource_id
-                            )}
-                          </h4>
+                    <div className="booking-info">
 
-                          <p className="booking-user">
+                      <strong>
+                        {
+                          getResourceName(
+                            booking.resource_id
+                          )
+                        }
+                      </strong>
 
-                            Requested by{" "}
-
-                            <strong>
-                              {booking.user_name}
-                            </strong>
-
-                          </p>
-
-                          <p>
-                            {booking.date} &nbsp;•&nbsp;
-                            {booking.start_time} –
-                            {booking.end_time}
-                          </p>
-
-                          <span className="booking-purpose">
-                            {booking.purpose}
-                          </span>
-
-                        </div>
-
-                      </div>
-
-                      <div className="admin-booking-actions">
-
-                        <span
-                          className={`status ${getStatusClass(
-                            booking.status
-                          )}`}
-                        >
-                          {booking.status}
-                        </span>
-
-                        {booking.status === "PENDING" && (
-
-                          <div className="action-buttons">
-
-                            <button
-                              className="approve-button"
-                              onClick={() =>
-                                approveBooking(
-                                  booking.id
-                                )
-                              }
-                            >
-                              ✓ Approve
-                            </button>
-
-                            <button
-                              className="reject-button"
-                              onClick={() =>
-                                rejectBooking(
-                                  booking.id
-                                )
-                              }
-                            >
-                              ✕ Reject
-                            </button>
-
-                          </div>
-
+                      <span>
+                        {formatDate(
+                          booking.date
                         )}
+                        {" • "}
+                        {
+                          booking.start_time
+                        }
+                        {" - "}
+                        {
+                          booking.end_time
+                        }
+                      </span>
 
-                      </div>
+                      <span>
+                        Purpose:
+                        {" "}
+                        {booking.purpose}
+                      </span>
+
+                      <small>
+                        Booking ID:
+                        {" "}
+                        {booking.id}
+                      </small>
 
                     </div>
 
-                  ))}
 
-                </div>
+                    {/* =================================================
+                        STATUS + WITHDRAW BUTTON
+                       ================================================= */}
 
-              )}
+                    <div className="booking-status-area">
 
-            </section>
+                      <span
+                        className={`status ${getStatusClass(
+                          booking.status
+                        )}`}
+                      >
+                        {booking.status}
+                      </span>
 
-          </>
+
+                      {/* -------------------------------------------------
+                          WITHDRAW IS ONLY SHOWN FOR:
+                          1. PENDING BOOKING
+                          2. CURRENT USER'S BOOKING
+                         ------------------------------------------------- */}
+
+                      {booking.status ===
+                        "PENDING" &&
+
+                        booking.user_email ===
+                          auth.user?.profile
+                            ?.email && (
+
+                        <button
+                          className="withdraw-button"
+                          onClick={() =>
+                            withdrawBooking(
+                              booking.id
+                            )
+                          }
+                        >
+                          Withdraw
+                        </button>
+
+                      )}
+
+                    </div>
+
+                  </div>
+
+                ))}
+
+            </div>
+
+          )}
+
+        </div>
+
+      </>
+    );
+  }
+
+
+  // ==========================================================
+  // ADMIN DASHBOARD
+  // ==========================================================
+
+  function renderAdminDashboard() {
+
+    return (
+      <>
+
+        <div className="page-header">
+
+          <div>
+
+            <h1>
+              Admin Dashboard
+            </h1>
+
+            <p>
+              Manage campus resource
+              booking requests.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div className="stats-grid">
+
+          <div className="stat-card">
+
+            <span>
+              Resources
+            </span>
+
+            <strong>
+              {resources.length}
+            </strong>
+
+          </div>
+
+
+          <div className="stat-card">
+
+            <span>
+              Pending Requests
+            </span>
+
+            <strong>
+              {pendingBookings.length}
+            </strong>
+
+          </div>
+
+
+          <div className="stat-card">
+
+            <span>
+              Approved
+            </span>
+
+            <strong>
+              {approvedBookings.length}
+            </strong>
+
+          </div>
+
+
+          <div className="stat-card">
+
+            <span>
+              Rejected
+            </span>
+
+            <strong>
+              {rejectedBookings.length}
+            </strong>
+
+          </div>
+
+        </div>
+
+
+        <div className="dashboard-card">
+
+          <div className="card-heading">
+
+            <div>
+
+              <h2>
+                Booking Requests
+              </h2>
+
+              <p>
+                Review and manage
+                student requests.
+              </p>
+
+            </div>
+
+          </div>
+
+
+          {bookings.length === 0 ? (
+
+            <div className="empty-state">
+
+              <h3>
+                No booking requests
+              </h3>
+
+              <p>
+                There are currently
+                no booking requests.
+              </p>
+
+            </div>
+
+          ) : (
+
+            <div className="admin-booking-list">
+
+              {bookings
+                .slice()
+                .reverse()
+                .map(booking => (
+
+                  <div
+                    className="admin-booking-card"
+                    key={booking.id}
+                  >
+
+                    <div className="admin-booking-main">
+
+                      <div>
+
+                        <h3>
+                          {
+                            getResourceName(
+                              booking.resource_id
+                            )
+                          }
+                        </h3>
+
+                        <p>
+                          Student:
+                          {" "}
+                          {
+                            booking.user_name
+                          }
+                        </p>
+
+                        <p>
+                          Email:
+                          {" "}
+                          {
+                            booking.user_email
+                          }
+                        </p>
+
+                      </div>
+
+
+                      <span
+                        className={`status ${getStatusClass(
+                          booking.status
+                        )}`}
+                      >
+                        {booking.status}
+                      </span>
+
+                    </div>
+
+
+                    <div className="admin-booking-details">
+
+                      <span>
+                        Date:
+                        {" "}
+                        {formatDate(
+                          booking.date
+                        )}
+                      </span>
+
+                      <span>
+                        Time:
+                        {" "}
+                        {
+                          booking.start_time
+                        }
+                        {" - "}
+                        {
+                          booking.end_time
+                        }
+                      </span>
+
+                      <span>
+                        Purpose:
+                        {" "}
+                        {
+                          booking.purpose
+                        }
+                      </span>
+
+                      <span>
+                        ID:
+                        {" "}
+                        {booking.id}
+                      </span>
+
+                    </div>
+
+
+                    {/* =================================================
+                        ADMIN ACTIONS
+                       ================================================= */}
+
+                    {booking.status ===
+                      "PENDING" && (
+
+                      <div className="admin-actions">
+
+                        <button
+                          className="approve-button"
+                          onClick={() =>
+                            approveBooking(
+                              booking.id
+                            )
+                          }
+                        >
+                          Approve
+                        </button>
+
+
+                        <button
+                          className="reject-button"
+                          onClick={() =>
+                            rejectBooking(
+                              booking.id
+                            )
+                          }
+                        >
+                          Reject
+                        </button>
+
+                      </div>
+
+                    )}
+
+                  </div>
+
+                ))}
+
+            </div>
+
+          )}
+
+        </div>
+
+      </>
+    );
+  }
+
+
+  // ==========================================================
+  // MAIN APPLICATION LAYOUT
+  // ==========================================================
+
+  return (
+
+    <div className="app-shell">
+
+
+      {/* ======================================================
+          SIDEBAR
+         ====================================================== */}
+
+      <aside className="sidebar">
+
+        <div className="sidebar-brand">
+
+          <div className="brand-mark">
+            SC
+          </div>
+
+          <div>
+
+            <h2>
+              SmartCampus
+            </h2>
+
+            <span>
+              Resource Management
+            </span>
+
+          </div>
+
+        </div>
+
+
+        <nav className="sidebar-nav">
+
+          {!isAdmin && (
+
+            <>
+
+              <button
+                className={
+                  activePage ===
+                  "dashboard"
+                    ? "nav-item active"
+                    : "nav-item"
+                }
+                onClick={() =>
+                  setActivePage(
+                    "dashboard"
+                  )
+                }
+              >
+                <span>
+                  Dashboard
+                </span>
+              </button>
+
+
+              <button
+                className={
+                  activePage ===
+                  "resources"
+                    ? "nav-item active"
+                    : "nav-item"
+                }
+                onClick={() =>
+                  setActivePage(
+                    "resources"
+                  )
+                }
+              >
+                <span>
+                  Resources
+                </span>
+              </button>
+
+
+              <button
+                className={
+                  activePage ===
+                  "bookings"
+                    ? "nav-item active"
+                    : "nav-item"
+                }
+                onClick={() =>
+                  setActivePage(
+                    "bookings"
+                  )
+                }
+              >
+                <span>
+                  My Bookings
+                </span>
+              </button>
+
+            </>
+
+          )}
+
+
+          {isAdmin && (
+
+            <button
+              className={
+                activePage ===
+                "admin"
+                  ? "nav-item active"
+                  : "nav-item"
+              }
+              onClick={() =>
+                setActivePage(
+                  "admin"
+                )
+              }
+            >
+              <span>
+                Booking Requests
+              </span>
+            </button>
+
+          )}
+
+        </nav>
+
+
+        <div className="sidebar-footer">
+
+          <div className="user-profile">
+
+            <div className="user-avatar">
+
+              {
+                userName
+                  ?.charAt(0)
+                  ?.toUpperCase()
+              }
+
+            </div>
+
+
+            <div className="user-details">
+
+              <strong>
+                {userName}
+              </strong>
+
+              <span>
+                {isAdmin
+                  ? "Admin"
+                  : "Student"}
+              </span>
+
+            </div>
+
+          </div>
+
+
+          <button
+            className="logout-button"
+            onClick={logout}
+          >
+            Sign Out
+          </button>
+
+        </div>
+
+      </aside>
+
+
+      {/* ======================================================
+          MAIN CONTENT
+         ====================================================== */}
+
+      <main className="main-content">
+
+
+        {/* ====================================================
+            TOP BAR
+           ==================================================== */}
+
+        <header className="topbar">
+
+          <div>
+
+            <span className="topbar-label">
+              Campus Resource Portal
+            </span>
+
+          </div>
+
+
+          <div className="topbar-user">
+
+            <span>
+              {userEmail}
+            </span>
+
+            <span className="role-badge">
+
+              {isAdmin
+                ? "Admin"
+                : "Student"}
+
+            </span>
+
+          </div>
+
+        </header>
+
+
+        {/* ====================================================
+            ALERT MESSAGES
+           ==================================================== */}
+
+        {message && (
+
+          <div className="success-message">
+
+            {message}
+
+          </div>
+
         )}
+
+
+        {error && (
+
+          <div className="error-message">
+
+            {error}
+
+          </div>
+
+        )}
+
+
+        {/* ====================================================
+            PAGE CONTENT
+           ==================================================== */}
+
+        <section className="content-area">
+
+          {!isAdmin &&
+            activePage ===
+              "dashboard" &&
+            renderStudentDashboard()}
+
+
+          {!isAdmin &&
+            activePage ===
+              "resources" &&
+            renderResources()}
+
+
+          {!isAdmin &&
+            activePage ===
+              "bookings" &&
+            renderStudentBookings()}
+
+
+          {isAdmin &&
+            activePage ===
+              "admin" &&
+            renderAdminDashboard()}
+
+        </section>
 
       </main>
 
-      {/* FOOTER */}
-
-      <footer className="footer">
-
-        <p>
-          SmartCampus Resource Booking System
-        </p>
-
-        <span>
-          AWS Powered • Secure • Scalable
-        </span>
-
-      </footer>
-
     </div>
+
   );
 }
-
-export default App; 

@@ -102,6 +102,9 @@ export default function App() {
   const [error, setError] =
     useState("");
 
+  const [adminRemarks, setAdminRemarks] =
+    useState({});
+
   const [loading, setLoading] =
     useState(false);
 
@@ -376,44 +379,52 @@ export default function App() {
   // ==========================================================
 
   async function approveBooking(id) {
-
     clearMessages();
 
+    const remark =
+      (adminRemarks[id] || "").trim();
+
     try {
+      const response = await fetch(
+        `${API_URL}/bookings/${id}/approve`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            admin_remark: remark
+          })
+        }
+      );
 
-      const response =
-        await fetch(
-          `${API_URL}/bookings/${id}/approve`,
-          {
-            method: "PATCH"
-          }
-        );
-
-
-      const data =
-        await response.json();
-
+      const data = await response.json();
 
       if (!response.ok) {
-
         setError(
           data.message ||
           "Unable to approve booking."
         );
-
         return;
       }
-
 
       setMessage(
         "Booking approved successfully."
       );
 
+      setAdminRemarks(previous => {
+        const updated = {
+          ...previous
+        };
+
+        delete updated[id];
+
+        return updated;
+      });
 
       await loadBookings();
 
     } catch (err) {
-
       console.error(err);
 
       setError(
@@ -423,49 +434,58 @@ export default function App() {
   }
 
 
+
   // ==========================================================
   // REJECT BOOKING
   // ==========================================================
 
   async function rejectBooking(id) {
-
     clearMessages();
 
+    const remark =
+      (adminRemarks[id] || "").trim();
+
     try {
+      const response = await fetch(
+        `${API_URL}/bookings/${id}/reject`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            admin_remark: remark
+          })
+        }
+      );
 
-      const response =
-        await fetch(
-          `${API_URL}/bookings/${id}/reject`,
-          {
-            method: "PATCH"
-          }
-        );
-
-
-      const data =
-        await response.json();
-
+      const data = await response.json();
 
       if (!response.ok) {
-
         setError(
           data.message ||
           "Unable to reject booking."
         );
-
         return;
       }
-
 
       setMessage(
         "Booking rejected successfully."
       );
 
+      setAdminRemarks(previous => {
+        const updated = {
+          ...previous
+        };
+
+        delete updated[id];
+
+        return updated;
+      });
 
       await loadBookings();
 
     } catch (err) {
-
       console.error(err);
 
       setError(
@@ -473,6 +493,7 @@ export default function App() {
       );
     }
   }
+
 
 
   // ==========================================================
@@ -1303,6 +1324,14 @@ export default function App() {
                         {booking.purpose}
                       </span>
 
+                      {booking.admin_remark && (
+                        <span className="booking-admin-remark">
+                          Admin Remark:
+                          {" "}
+                          {booking.admin_remark}
+                        </span>
+                      )}
+
                       <small>
                         Booking ID:
                         {" "}
@@ -1587,36 +1616,61 @@ export default function App() {
                         ADMIN ACTIONS
                        ================================================= */}
 
+                    {booking.admin_remark && (
+                      <div className="admin-remark-display">
+                        <strong>
+                          Admin Remark:
+                        </strong>
+                        {" "}
+                        {booking.admin_remark}
+                      </div>
+                    )}
+
                     {booking.status ===
                       "PENDING" && (
-
-                      <div className="admin-actions">
-
-                        <button
-                          className="approve-button"
-                          onClick={() =>
-                            approveBooking(
-                              booking.id
-                            )
+                      <>
+                        <textarea
+                          className="admin-remark-input"
+                          placeholder="Add an optional remark..."
+                          value={
+                            adminRemarks[booking.id] || ""
                           }
-                        >
-                          Approve
-                        </button>
-
-
-                        <button
-                          className="reject-button"
-                          onClick={() =>
-                            rejectBooking(
-                              booking.id
-                            )
+                          onChange={event =>
+                            setAdminRemarks(previous => ({
+                              ...previous,
+                              [booking.id]:
+                                event.target.value
+                            }))
                           }
-                        >
-                          Reject
-                        </button>
+                          rows="2"
+                        />
 
-                      </div>
+                        <div className="admin-actions">
 
+                          <button
+                            className="approve-button"
+                            onClick={() =>
+                              approveBooking(
+                                booking.id
+                              )
+                            }
+                          >
+                            Approve
+                          </button>
+
+                          <button
+                            className="reject-button"
+                            onClick={() =>
+                              rejectBooking(
+                                booking.id
+                              )
+                            }
+                          >
+                            Reject
+                          </button>
+
+                        </div>
+                      </>
                     )}
 
                   </div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "react-oidc-context";
+import Signup from "./Signup";
 import "./App.css";
 
 
@@ -108,6 +109,9 @@ export default function App() {
   const [loading, setLoading] =
     useState(false);
 
+  const [showSignup, setShowSignup] =
+    useState(false);
+
 
   // ==========================================================
   // USER INFORMATION
@@ -119,17 +123,20 @@ export default function App() {
   const userName =
     auth.user?.profile?.name ||
     auth.user?.profile?.email ||
-    "Student";
+    "User";
 
 
   // ==========================================================
   // ROLE DETECTION
   // ==========================================================
 
-  const isAdmin =
-    auth.user?.profile?.["cognito:groups"]?.includes(
-      "Admins"
-    );
+  const groups =
+    auth.user?.profile?.["cognito:groups"] ||
+    [];
+
+  const isAdmin = groups.includes("Admins");
+  const isFaculty = groups.includes("Faculty");
+  const isStudent = groups.includes("Students");
 
 
   // ==========================================================
@@ -660,6 +667,15 @@ export default function App() {
   // ==========================================================
 
   if (!auth.isAuthenticated) {
+    if(showSignup){
+      return(
+        <Signup
+          onBackToLogin={() =>
+            setShowSignup(false)
+          }
+        />
+      );
+    }
 
     return (
       <div className="welcome-page">
@@ -688,8 +704,39 @@ export default function App() {
             Sign in with Cognito
           </button>
 
+          <button
+            className="secondary-button"
+            onClick={() =>
+              setShowSignup(true)
+            }
+          >
+            Create an Account
+          </button>
+
         </div>
 
+      </div>
+    );
+  }
+
+
+  // ==========================================================
+  // ROLE VALIDATION
+  // ==========================================================
+
+  if (!isStudent && !isFaculty && !isAdmin) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-card">
+          <h2>SmartCampus</h2>
+          <p>
+            Your account is authenticated, but no SmartCampus role
+            is assigned. Please contact the administrator.
+          </p>
+          <button className="primary-button" onClick={logout}>
+            Sign Out
+          </button>
+        </div>
       </div>
     );
   }
@@ -773,8 +820,9 @@ export default function App() {
             </h1>
 
             <p>
-              Manage your campus
-              resource bookings.
+              {isFaculty
+                ? "Book campus resources and track your faculty booking requests."
+                : "Manage your campus resource bookings."}
             </p>
 
           </div>
@@ -863,8 +911,9 @@ export default function App() {
                 </h2>
 
                 <p>
-                  Reserve a campus
-                  resource.
+                  {isFaculty
+                  ? "Reserve a campus resource for academic activities."
+                  : "Reserve a campus resource."}
                 </p>
 
               </div>
@@ -1009,8 +1058,9 @@ export default function App() {
             </h1>
 
             <p>
-              Choose the resource you
-              want to reserve.
+              {isFaculty
+                ? "Choose a campus resource you want to reserve."
+                : "Choose the resource you want to reserve."}
             </p>
 
           </div>
@@ -1254,8 +1304,9 @@ export default function App() {
             </h1>
 
             <p>
-              Track the status of
-              your booking requests.
+              {isFaculty
+                ? "Track the status of your faculty booking requests."
+                : "Track the status of your booking requests."}
             </p>
 
           </div>
@@ -1494,7 +1545,7 @@ export default function App() {
 
               <p>
                 Review and manage
-                student requests.
+                campus booking requests.
               </p>
 
             </div>
@@ -1840,6 +1891,8 @@ export default function App() {
               <span>
                 {isAdmin
                   ? "Admin"
+                  : isFaculty
+                  ? "Faculty"
                   : "Student"}
               </span>
 
@@ -1892,6 +1945,8 @@ export default function App() {
 
               {isAdmin
                 ? "Admin"
+                : isFaculty
+                ? "Faculty"
                 : "Student"}
 
             </span>

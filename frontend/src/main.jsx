@@ -10,9 +10,11 @@ const cognitoAuthConfig = {
 
   client_id: "2ccooos6njocfrr07h9g99lc7u",
 
-  redirect_uri: "http://localhost:5173/",
+  redirect_uri:
+    "https://d3ojyakj0f2g25.cloudfront.net/",
 
-  post_logout_redirect_uri: "http://localhost:5173/",
+  post_logout_redirect_uri:
+    "https://d3ojyakj0f2g25.cloudfront.net/",
 
   response_type: "code",
 
@@ -44,5 +46,5 @@ createRoot(document.getElementById("root")).render(
     <AuthProvider {...cognitoAuthConfig}>
       <App />
     </AuthProvider>
-  </StrictMode>,
+  </StrictMode>
 );

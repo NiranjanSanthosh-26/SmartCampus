@@ -990,6 +990,63 @@ export default function App() {
   }
 
   // ==========================================================
+  // ADMIN ANALYTICS HELPERS
+  // ==========================================================
+
+  function getBookingDurationHours(
+    startTime,
+    endTime
+  ) {
+    if (!startTime || !endTime) {
+      return 0;
+    }
+
+    const [startHour, startMinute] =
+      String(startTime)
+        .split(":")
+        .map(Number);
+
+    const [endHour, endMinute] =
+      String(endTime)
+        .split(":")
+        .map(Number);
+
+    if (
+      [startHour, startMinute, endHour, endMinute]
+        .some(Number.isNaN)
+    ) {
+      return 0;
+    }
+
+    let start =
+      startHour * 60 +
+      startMinute;
+
+    let end =
+      endHour * 60 +
+      endMinute;
+
+    if (end < start) {
+      end += 24 * 60;
+    }
+
+    return (end - start) / 60;
+  }
+
+  function formatHours(hours) {
+    if (!hours) {
+      return "0 hrs";
+    }
+
+    const rounded =
+      Math.round(hours * 10) / 10;
+
+    return `${rounded} ${
+      rounded === 1 ? "hr" : "hrs"
+    }`;
+  }
+
+  // ==========================================================
   // CALCULATED BOOKING DATA
   // ==========================================================
 
@@ -3396,6 +3453,499 @@ export default function App() {
   }
 
   // ==========================================================
+  // ADMIN ANALYTICS
+  // ==========================================================
+
+  function renderAdminAnalytics() {
+    const totalBookings =
+      bookings.length;
+
+    const approvedCount =
+      approvedBookings.length;
+
+    const pendingCount =
+      pendingBookings.length;
+
+    const rejectedCount =
+      rejectedBookings.length;
+
+    const withdrawnCount =
+      withdrawnBookings.length;
+
+    const activeResourceCount =
+      resources.filter(
+        resource =>
+          resource.status ===
+          "ACTIVE"
+      ).length;
+
+    const totalResourceCount =
+      resources.length;
+
+    const approvalRate =
+      totalBookings > 0
+        ? Math.round(
+            (approvedCount /
+              totalBookings) *
+              100
+          )
+        : 0;
+
+    const approvedHours =
+      bookings
+        .filter(
+          booking =>
+            booking.status ===
+            "APPROVED"
+        )
+        .reduce(
+          (total, booking) =>
+            total +
+            getBookingDurationHours(
+              booking.start_time,
+              booking.end_time
+            ),
+          0
+        );
+
+    const resourceAnalytics =
+      resources
+        .map(resource => {
+          const resourceBookings =
+            bookings.filter(
+              booking =>
+                booking.resource_id ===
+                resource.id
+            );
+
+          const approvedBookingsForResource =
+            resourceBookings.filter(
+              booking =>
+                booking.status ===
+                "APPROVED"
+            );
+
+          const hours =
+            approvedBookingsForResource.reduce(
+              (total, booking) =>
+                total +
+                getBookingDurationHours(
+                  booking.start_time,
+                  booking.end_time
+                ),
+              0
+            );
+
+          return {
+            ...resource,
+            totalBookings:
+              resourceBookings.length,
+            approvedBookings:
+              approvedBookingsForResource.length,
+            approvedHours: hours
+          };
+        })
+        .sort(
+          (a, b) =>
+            b.totalBookings -
+            a.totalBookings
+        );
+
+    const maxResourceBookings =
+      Math.max(
+        ...resourceAnalytics.map(
+          item =>
+            item.totalBookings
+        ),
+        1
+      );
+
+    const statusAnalytics = [
+      {
+        label: "Approved",
+        count: approvedCount,
+        className: "approved"
+      },
+      {
+        label: "Pending",
+        count: pendingCount,
+        className: "pending"
+      },
+      {
+        label: "Rejected",
+        count: rejectedCount,
+        className: "rejected"
+      },
+      {
+        label: "Withdrawn",
+        count: withdrawnCount,
+        className: "withdrawn"
+      }
+    ];
+
+    const maxStatusCount =
+      Math.max(
+        ...statusAnalytics.map(
+          item => item.count
+        ),
+        1
+      );
+
+    const dateAnalytics = {};
+
+    bookings.forEach(booking => {
+      const date =
+        booking.date ||
+        "Unknown";
+
+      dateAnalytics[date] =
+        (dateAnalytics[date] || 0) +
+        1;
+    });
+
+    const bookingDateAnalytics =
+      Object.entries(
+        dateAnalytics
+      )
+        .filter(
+          ([date]) =>
+            date !== "Unknown"
+        )
+        .sort(
+          ([dateA], [dateB]) =>
+            new Date(dateA) -
+            new Date(dateB)
+        )
+        .slice(-7);
+
+    const maxDateBookings =
+      Math.max(
+        ...bookingDateAnalytics.map(
+          ([, count]) => count
+        ),
+        1
+      );
+
+    return (
+      <>
+        <div className="page-header admin-analytics-header">
+          <div>
+            <h1>Analytics</h1>
+            <p>
+              View booking activity and
+              resource utilization.
+            </p>
+          </div>
+
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => {
+              loadResources();
+              loadBookings();
+            }}
+          >
+            Refresh Analytics
+          </button>
+        </div>
+
+        <div className="stats-grid admin-analytics-stats">
+          <div className="stat-card">
+            <span>Total Bookings</span>
+            <strong>
+              {totalBookings}
+            </strong>
+          </div>
+
+          <div className="stat-card">
+            <span>Approved</span>
+            <strong>
+              {approvedCount}
+            </strong>
+          </div>
+
+          <div className="stat-card">
+            <span>Pending</span>
+            <strong>
+              {pendingCount}
+            </strong>
+          </div>
+
+          <div className="stat-card">
+            <span>Approval Rate</span>
+            <strong>
+              {approvalRate}%
+            </strong>
+          </div>
+
+          <div className="stat-card">
+            <span>Approved Hours</span>
+            <strong>
+              {formatHours(
+                approvedHours
+              )}
+            </strong>
+          </div>
+        </div>
+
+        <div className="analytics-grid">
+          <div className="dashboard-card">
+            <div className="card-heading">
+              <div>
+                <h2>
+                  Booking Status
+                </h2>
+                <p>
+                  Current distribution of
+                  booking requests.
+                </p>
+              </div>
+            </div>
+
+            <div className="analytics-bars">
+              {statusAnalytics.map(
+                item => (
+                  <div
+                    className="analytics-bar-row"
+                    key={item.label}
+                  >
+                    <div className="analytics-bar-label">
+                      <span>
+                        {item.label}
+                      </span>
+                      <strong>
+                        {item.count}
+                      </strong>
+                    </div>
+
+                    <div className="analytics-bar-track">
+                      <div
+                        className={`analytics-bar-fill ${item.className}`}
+                        style={{
+                          width: `${
+                            (item.count /
+                              maxStatusCount) *
+                            100
+                          }%`
+                        }}
+                      />
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+
+          <div className="dashboard-card">
+            <div className="card-heading">
+              <div>
+                <h2>
+                  Resource Summary
+                </h2>
+                <p>
+                  Resources currently available
+                  in SmartCampus.
+                </p>
+              </div>
+            </div>
+
+            <div className="analytics-summary-list">
+              <div>
+                <span>
+                  Total Resources
+                </span>
+                <strong>
+                  {totalResourceCount}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Active Resources
+                </span>
+                <strong>
+                  {activeResourceCount}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Inactive Resources
+                </span>
+                <strong>
+                  {Math.max(
+                    totalResourceCount -
+                      activeResourceCount,
+                    0
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Withdrawn Bookings
+                </span>
+                <strong>
+                  {withdrawnCount}
+                </strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="dashboard-card analytics-resource-card">
+          <div className="card-heading">
+            <div>
+              <h2>
+                Resource Utilization
+              </h2>
+              <p>
+                Booking count and approved
+                booking hours for each resource.
+              </p>
+            </div>
+          </div>
+
+          {resourceAnalytics.length ===
+          0 ? (
+            <div className="empty-state">
+              <h3>
+                No resources available
+              </h3>
+              <p>
+                Add resources to see
+                utilization data.
+              </p>
+            </div>
+          ) : (
+            <div className="analytics-resource-list">
+              {resourceAnalytics.map(
+                resource => (
+                  <div
+                    className="analytics-resource-row"
+                    key={resource.id}
+                  >
+                    <div className="analytics-resource-name">
+                      <strong>
+                        {resource.name}
+                      </strong>
+                      <span>
+                        {resource.type} ·{" "}
+                        {resource.location}
+                      </span>
+                    </div>
+
+                    <div className="analytics-resource-progress">
+                      <div className="analytics-bar-label">
+                        <span>
+                          {resource.totalBookings}{" "}
+                          {resource.totalBookings ===
+                          1
+                            ? "booking"
+                            : "bookings"}
+                        </span>
+                        <strong>
+                          {formatHours(
+                            resource.approvedHours
+                          )}
+                        </strong>
+                      </div>
+
+                      <div className="analytics-bar-track">
+                        <div
+                          className="analytics-bar-fill resource"
+                          style={{
+                            width: `${
+                              (resource.totalBookings /
+                                maxResourceBookings) *
+                              100
+                            }%`
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <span
+                      className={`status ${getStatusClass(
+                        resource.status
+                      )}`}
+                    >
+                      {resource.status}
+                    </span>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="dashboard-card">
+          <div className="card-heading">
+            <div>
+              <h2>
+                Recent Booking Activity
+              </h2>
+              <p>
+                Number of booking requests
+                grouped by date.
+              </p>
+            </div>
+          </div>
+
+          {bookingDateAnalytics.length ===
+          0 ? (
+            <div className="empty-state">
+              <h3>
+                No booking activity
+              </h3>
+              <p>
+                Booking activity will appear
+                here after requests are created.
+              </p>
+            </div>
+          ) : (
+            <div className="analytics-date-list">
+              {bookingDateAnalytics.map(
+                ([date, count]) => (
+                  <div
+                    className="analytics-date-row"
+                    key={date}
+                  >
+                    <span>
+                      {formatDate(date)}
+                    </span>
+
+                    <div className="analytics-date-track">
+                      <div
+                        className="analytics-bar-track"
+                      >
+                        <div
+                          className="analytics-bar-fill date"
+                          style={{
+                            width: `${
+                              (count /
+                                maxDateBookings) *
+                              100
+                            }%`
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <strong>
+                      {count}
+                    </strong>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  // ==========================================================
   // ADMIN PLACEHOLDER PAGE
   // ==========================================================
 
@@ -3440,6 +3990,206 @@ export default function App() {
     <div className="app-shell">
 
       <style>{`
+        .admin-analytics-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 20px;
+        }
+
+        .analytics-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+          gap: 18px;
+          margin-bottom: 18px;
+        }
+
+        .analytics-bars {
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+          margin-top: 18px;
+        }
+
+        .analytics-bar-row {
+          display: flex;
+          flex-direction: column;
+          gap: 7px;
+        }
+
+        .analytics-bar-label {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          font-size: 0.9rem;
+        }
+
+        .analytics-bar-label span {
+          color: #6b7280;
+        }
+
+        .analytics-bar-track {
+          width: 100%;
+          height: 10px;
+          overflow: hidden;
+          border-radius: 999px;
+          background: #eef2f7;
+        }
+
+        .analytics-bar-fill {
+          height: 100%;
+          min-width: 0;
+          border-radius: 999px;
+          background: #2563eb;
+          transition: width 0.25s ease;
+        }
+
+        .analytics-bar-fill.approved {
+          background: #16a34a;
+        }
+
+        .analytics-bar-fill.pending {
+          background: #d97706;
+        }
+
+        .analytics-bar-fill.rejected {
+          background: #dc2626;
+        }
+
+        .analytics-bar-fill.withdrawn {
+          background: #6b7280;
+        }
+
+        .analytics-bar-fill.resource {
+          background: #2563eb;
+        }
+
+        .analytics-bar-fill.date {
+          background: #4f46e5;
+        }
+
+        .analytics-summary-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+          margin-top: 6px;
+        }
+
+        .analytics-summary-list > div {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 16px;
+          padding: 15px 0;
+          border-bottom: 1px solid #eef0f4;
+        }
+
+        .analytics-summary-list > div:last-child {
+          border-bottom: none;
+        }
+
+        .analytics-summary-list span {
+          color: #6b7280;
+        }
+
+        .analytics-summary-list strong {
+          font-size: 1.15rem;
+        }
+
+        .analytics-resource-card {
+          margin-bottom: 18px;
+        }
+
+        .analytics-resource-list {
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+          margin-top: 18px;
+        }
+
+        .analytics-resource-row {
+          display: grid;
+          grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1.4fr) auto;
+          align-items: center;
+          gap: 20px;
+          padding: 15px 0;
+          border-bottom: 1px solid #eef0f4;
+        }
+
+        .analytics-resource-row:last-child {
+          border-bottom: none;
+        }
+
+        .analytics-resource-name {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          min-width: 0;
+        }
+
+        .analytics-resource-name strong {
+          overflow-wrap: anywhere;
+        }
+
+        .analytics-resource-name span {
+          color: #6b7280;
+          font-size: 0.84rem;
+        }
+
+        .analytics-resource-progress {
+          min-width: 0;
+        }
+
+        .analytics-date-list {
+          display: flex;
+          flex-direction: column;
+          gap: 15px;
+          margin-top: 18px;
+        }
+
+        .analytics-date-row {
+          display: grid;
+          grid-template-columns: 130px minmax(160px, 1fr) 40px;
+          align-items: center;
+          gap: 15px;
+        }
+
+        .analytics-date-row > span {
+          color: #4b5563;
+          font-size: 0.9rem;
+        }
+
+        .analytics-date-row > strong {
+          text-align: right;
+        }
+
+        .analytics-date-track {
+          min-width: 0;
+        }
+
+        @media (max-width: 900px) {
+          .analytics-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .analytics-resource-row {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        @media (max-width: 700px) {
+          .admin-analytics-header {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+
+          .analytics-date-row {
+            grid-template-columns: 100px minmax(100px, 1fr) 30px;
+            gap: 10px;
+          }
+        }
+
         .admin-user-header {
           display: flex;
           justify-content: space-between;
@@ -4048,10 +4798,7 @@ export default function App() {
           {isAdmin &&
             activePage ===
               "admin-analytics" &&
-            renderAdminPlaceholder(
-              "Analytics",
-              "View booking activity and resource utilization."
-            )}
+            renderAdminAnalytics()}
 
         </section>
 

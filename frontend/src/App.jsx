@@ -856,6 +856,7 @@ export default function App() {
 
         <div className="loading-card">
 
+          {/*CI/CD pipeline test*/}
           <h2>
             SmartCampus
           </h2>

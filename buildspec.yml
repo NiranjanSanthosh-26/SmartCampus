@@ -1,0 +1,37 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo "Installing frontend dependencies..."
+      - cd frontend
+      - npm ci
+      - cd ..
+
+  pre_build:
+    commands:
+      - echo "Starting pre-build phase..."
+      - echo "Node version:"
+      - node --version
+      - echo "NPM version:"
+      - npm --version
+
+  build:
+    commands:
+      - echo "Building React frontend..."
+      - cd frontend
+      - npm run build
+      - cd ..
+
+  post_build:
+    commands:
+      - echo "Deploying frontend to S3..."
+      - aws s3 sync frontend/dist s3://smartcampus-frontend-693290005305 --delete
+      - echo "Invalidating CloudFront cache..."
+      - aws cloudfront create-invalidation --distribution-id E37X19I0GHN9GC --paths "/*"
+      - echo "CI/CD build completed successfully!"
+
+artifacts:
+  files:
+    - '**/*'
+  base-directory: frontend/dist
